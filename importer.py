@@ -8,6 +8,8 @@ import urllib.request
 import urllib.error
 import ssl
 
+DEFAULT_GDOC_URL = "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"
+
 DEFAULT_VERBS = [
     "奔跑", "跳躍", "飛翔", "思考", "凝視", "探索", "歌唱", "燃燒",
     "綻放", "流浪", "傾聽", "繪製", "追逐", "擁抱", "等待", "發明",

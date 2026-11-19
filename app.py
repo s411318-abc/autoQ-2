@@ -61,6 +61,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
         elif path in ("/api", "/api/words", "/api/index"):
             data = {
                 "status": "online",
+                "default_gdoc_url": getattr(importer, "DEFAULT_GDOC_URL", "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"),
                 "default_verbs": importer.DEFAULT_VERBS,
                 "default_nouns": importer.DEFAULT_NOUNS,
                 "total_default_words": len(importer.DEFAULT_VERBS) + len(importer.DEFAULT_NOUNS),
@@ -83,7 +84,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
             req_data = {}
 
         if path in ("/api/import-google-doc", "/api/import"):
-            url = req_data.get("url", "").strip()
+            url = req_data.get("url", "").strip() or getattr(importer, "DEFAULT_GDOC_URL", "")
             if not url:
                 self._send_json({"error": "請提供有效的 Google 文件網址或 ID！"}, status=400)
                 return

@@ -225,10 +225,12 @@ class DrawAppGUI:
         messagebox.showinfo("提示", "已重設不重複抽籤池！")
 
     def open_google_doc_dialog(self):
+        default_url = getattr(importer, "DEFAULT_GDOC_URL", "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0")
         url = simpledialog.askstring(
             "從 Google 文件匯入",
             "請貼上 Google 文件網址或 Document ID：\n\n"
             "※ 請確保 Google 文件權限已設為「知道連結的任何人都能查看」",
+            initialvalue=default_url,
             parent=self.root
         )
         if not url:

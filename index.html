@@ -729,13 +729,19 @@
             <div class="gdoc-box">
                 <h4>🌐 從 Google 文件匯入雲端詞庫</h4>
                 <p style="font-size: 0.88rem; color: #166534;">
-                    只需貼上您的 Google 文件連結或 Document ID，即可一鍵將雲端文件中的動詞與名詞同步進系統！
+                    已為您預設連結專屬 Google 文件，您在文件內新增或修改詞彙後，點擊「立即匯入」即可隨時同步最新詞庫！
                 </p>
                 <div class="input-row">
-                    <input type="text" id="gdocUrl" placeholder="請貼上 Google Docs 網址 (如 https://docs.google.com/document/d/.../edit)">
+                    <input type="text" id="gdocUrl" value="https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0" placeholder="請貼上 Google Docs 網址 (如 https://docs.google.com/document/d/.../edit)">
                     <button class="btn-success" id="btnImportGdoc" onclick="importGoogleDoc()">
                         <span>📥</span> 立即匯入
                     </button>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.85rem; color: #166534; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                    <span>✅ 預設已綁定您的 Google 文件</span>
+                    <a href="https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0" target="_blank" style="color: #15803d; font-weight: 600; text-decoration: underline;">
+                        在新分頁開啟您的 Google 文件編輯 ↗
+                    </a>
                 </div>
 
                 <!-- 折疊指引與範本 -->
@@ -769,6 +775,7 @@
                 <div class="card-title" style="justify-content: space-between;">
                     <span>✏️ 線上編輯當前詞庫</span>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-sm" onclick="importGoogleDoc(DEFAULT_GDOC_URL)">🌐 同步 Google 文件</button>
                         <label class="btn-sm" style="cursor: pointer; display: inline-flex; align-items: center;">
                             📂 匯入本機 TXT 檔案
                             <input type="file" id="fileInput" accept=".txt" style="display: none;" onchange="handleFileImport(event)">
@@ -845,10 +852,16 @@
 
         // 初始化
         window.addEventListener('DOMContentLoaded', () => {
+            const isFirstVisit = !localStorage.getItem('draw_verbs');
             loadSavedData();
             initRemainingPools();
             updateUIStats();
             renderHistory();
+
+            // 若初次造訪，自動嘗試同步預設 Google 文件詞庫
+            if (isFirstVisit) {
+                importGoogleDoc(DEFAULT_GDOC_URL).catch(() => {});
+            }
 
             document.getElementById('drawCount').addEventListener('change', (e) => {
                 const customInput = document.getElementById('customCount');
@@ -1201,10 +1214,15 @@
             return w.replace(/^[\d\.\-\*•、\(\)（）\s]+/, '').replace(/^["'“”‘’\[\]【】\(\)\{\}\s]+|["'“”‘’\[\]【】\(\)\{\}\s]+$/g, '').trim();
         }
 
+        const DEFAULT_GDOC_URL = "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0";
+
         // 從 Google 文件匯入
-        async function importGoogleDoc() {
+        async function importGoogleDoc(overrideUrl) {
             const urlInput = document.getElementById('gdocUrl');
-            const url = urlInput.value.trim();
+            if (overrideUrl) {
+                urlInput.value = overrideUrl;
+            }
+            const url = urlInput.value.trim() || DEFAULT_GDOC_URL;
             if (!url) {
                 showToast('請先輸入 Google Docs 網址或 ID！', 'error');
                 return;

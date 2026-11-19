@@ -95,6 +95,10 @@ python gui.py
 2. 將「一般存取權」改為**「知道連結的任何人」**（檢視者）。
 3. 複製連結並貼入抽籤系統的匯入框中，點選**「立即匯入」**！
 
+> 🔗 **專案預設綁定之 Google 文件**：  
+> [https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0](https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0)  
+> 系統已將此文件設為預設詞庫來源，於該文件內新增或修改詞彙後，在系統點選「立即匯入」或「同步 Google 文件」即可即時更新！
+
 ---
 
 ## 📁 Vercel 專案架構說明
