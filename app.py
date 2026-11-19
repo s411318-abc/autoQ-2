@@ -83,7 +83,19 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             req_data = {}
 
-        if path in ("/api/import-google-doc", "/api/import"):
+        if "text" in req_data or "parse-text" in path:
+            text = req_data.get("text", "")
+            verbs, nouns = importer.parse_word_bank(text)
+            self._send_json({
+                "success": True,
+                "verbs": verbs,
+                "nouns": nouns,
+                "verbs_count": len(verbs),
+                "nouns_count": len(nouns)
+            })
+            return
+
+        if "url" in req_data or "import" in path or path in ("/api/index.py", "/api/index", "/api", ""):
             url = req_data.get("url", "").strip() or getattr(importer, "DEFAULT_GDOC_URL", "")
             if not url:
                 self._send_json({"error": "請提供有效的 Google 文件網址或 ID！"}, status=400)
@@ -108,19 +120,9 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self._send_json({"error": str(e)}, status=400)
+            return
 
-        elif path == "/api/parse-text":
-            text = req_data.get("text", "")
-            verbs, nouns = importer.parse_word_bank(text)
-            self._send_json({
-                "success": True,
-                "verbs": verbs,
-                "nouns": nouns,
-                "verbs_count": len(verbs),
-                "nouns_count": len(nouns)
-            })
-        else:
-            self._send_json({"error": f"未知的 POST 端點: {path}"}, status=404)
+        self._send_json({"error": f"未知的 POST 端點: {path}"}, status=404)
 
 def find_free_port(start_port=8080, max_port=8180):
     for port in range(start_port, max_port):

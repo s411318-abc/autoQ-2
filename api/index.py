@@ -44,8 +44,10 @@ class handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path.rstrip('/')
 
-        # 預設資訊與詞庫清單
-        if path in ("", "/api", "/api/words", "/api/index"):
+        # 預設資訊與詞庫清單 (相容 Vercel rewrite /api/index.py 等各種路徑)
+        if "health" in path:
+            self._send_json({"status": "healthy"})
+        else:
             data = {
                 "status": "online",
                 "default_gdoc_url": getattr(importer, "DEFAULT_GDOC_URL", "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"),
@@ -55,10 +57,6 @@ class handler(BaseHTTPRequestHandler):
                 "message": "動詞與名詞智慧抽籤器 API 運作中"
             }
             self._send_json(data)
-        elif path == "/api/health":
-            self._send_json({"status": "healthy"})
-        else:
-            self._send_json({"error": f"找不到端點: {path}"}, status=404)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -71,8 +69,22 @@ class handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             req_data = {}
 
+        # 詞庫解析 (直接傳送純文字內容)
+        if "text" in req_data or "parse-text" in path:
+            text = req_data.get("text", "")
+            verbs, nouns = importer.parse_word_bank(text)
+            self._send_json({
+                "success": True,
+                "verbs": verbs,
+                "nouns": nouns,
+                "verbs_count": len(verbs),
+                "nouns_count": len(nouns)
+            })
+            return
+
         # Google Docs 雲端匯入端點
-        if path in ("/api/import-google-doc", "/api/import", "/api"):
+        # 相容 /api/index.py (Vercel rewrite)、/api/import-google-doc、/api/import、/api 等
+        if "url" in req_data or "import" in path or path in ("/api/index.py", "/api/index", "/api", ""):
             url = req_data.get("url", "").strip() or getattr(importer, "DEFAULT_GDOC_URL", "")
             if not url:
                 self._send_json({"error": "請提供有效的 Google 文件網址或 ID！"}, status=400)
@@ -97,18 +109,6 @@ class handler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self._send_json({"error": str(e)}, status=400)
+            return
 
-        # 詞庫解析 (直接傳送純文字內容進行解析)
-        elif path == "/api/parse-text":
-            text = req_data.get("text", "")
-            verbs, nouns = importer.parse_word_bank(text)
-            self._send_json({
-                "success": True,
-                "verbs": verbs,
-                "nouns": nouns,
-                "verbs_count": len(verbs),
-                "nouns_count": len(nouns)
-            })
-
-        else:
-            self._send_json({"error": f"未知的 POST 端點: {path}"}, status=404)
+        self._send_json({"error": f"未知的 POST 端點: {path}"}, status=404)
