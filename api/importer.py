@@ -1,6 +1,6 @@
 """
-Google 文件匯入與詞庫解析模組 (Vercel Serverless & Local 共用)
-支援從 Google Docs 公開連結或文字內容解析動詞與名詞詞庫。
+Google 文件匯入與詞庫解析模組
+支援從 Google Docs 公開連結或文字內容解析動詞、名詞與現成句子詞庫。
 """
 
 import re
@@ -20,6 +20,21 @@ DEFAULT_NOUNS = [
     "貓咪", "夢想", "星星", "微風", "海浪", "時光", "宇宙", "火焰",
     "森林", "影子", "雨滴", "記憶", "旅人", "秘密", "指南針", "島嶼",
     "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
+]
+
+DEFAULT_SENTENCES = [
+    '"奔跑"的"貓咪"',
+    '"打字"的"工程師"',
+    '"燃燒"的"夢想"',
+    '"飛翔"的"羽翼"',
+    '"思考"的"哲學家"',
+    '"探索"的"旅人"',
+    '"綻放"的"玫瑰"',
+    '"流浪"的"吉他手"',
+    '"等待"的"信件"',
+    '"守護"的"城堡"',
+    '"穿梭"的"時光機"',
+    '"喚醒"的"記憶"'
 ]
 
 def extract_doc_id(url_or_id: str) -> str:
@@ -105,18 +120,42 @@ def clean_word(word: str) -> str:
     w = w.strip(' \t\n\r"\'“”‘’[]【】()（）{}')
     return w
 
-def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
-    """智慧解析文字內容為 (動詞列表, 名詞列表)"""
+def format_sentence(line: str) -> str:
+    """將句子規範化為 \"動詞\"的\"名詞\" 格式"""
+    raw = re.sub(r'^(?:[\d]+[\.、\)]|[\-\*•\(\)（）])\s*', '', line.strip())
+    raw = raw.strip(' \t\n\r[]【】{}')
+    
+    # 匹配 A 的 B 或 "A" 的 "B"
+    m = re.match(r'^"?(.*?)"?\s*的\s*"?(.*?)"?$', raw)
+    if m and m.group(1).strip() and m.group(2).strip():
+        v = m.group(1).strip().strip('"\'“”‘’')
+        n = m.group(2).strip().strip('"\'“”‘’')
+        return f'"{v}"的"{n}"'
+    return raw
+
+def parse_word_bank(content: str) -> tuple[list[str], list[str], list[str]]:
+    """
+    智慧解析文字內容為 (動詞列表, 名詞列表, 現成句子列表)
+    支援區塊標題式：
+      [動詞]
+      奔跑
+      [名詞]
+      貓咪
+      [句子]
+      "奔跑"的"貓咪"
+    """
     verbs = []
     nouns = []
+    sentences = []
     current_section = None
     
     lines = content.splitlines()
     
-    # 檢查是否為雙欄表頭格式
+    # 檢查是否為雙欄/多欄表頭格式
     is_table_mode = False
     v_col_idx = -1
     n_col_idx = -1
+    s_col_idx = -1
     
     for idx, line in enumerate(lines[:10]):
         cleaned = line.strip()
@@ -132,6 +171,8 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                     v_col_idx = i
                 elif '名詞' in c or 'noun' in c.lower():
                     n_col_idx = i
+                elif '句' in c or 'sentence' in c.lower():
+                    s_col_idx = i
             lines = lines[idx+1:]
             break
             
@@ -148,8 +189,13 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                 n = clean_word(cols[n_col_idx])
                 if n and not ('名詞' in n or 'noun' in n.lower()):
                     nouns.append(n)
-        return list(dict.fromkeys(verbs)), list(dict.fromkeys(nouns))
+            if s_col_idx != -1 and len(cols) > s_col_idx:
+                s = format_sentence(cols[s_col_idx])
+                if s and not ('句' in s or 'sentence' in s.lower()):
+                    sentences.append(s)
+        return list(dict.fromkeys(verbs)), list(dict.fromkeys(nouns)), list(dict.fromkeys(sentences))
 
+    # 傳統區塊標籤格式
     for line in lines:
         line_clean = line.strip()
         if not line_clean:
@@ -162,6 +208,11 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
         )
         n_header_match = re.match(
             r'^(?:#+\s*)?(?:\[|【)?(?:\s*名詞\s*|Nouns?)(?:\]|】)?(?:\s*[:：])?(.*)$',
+            line_clean,
+            re.IGNORECASE
+        )
+        s_header_match = re.match(
+            r'^(?:#+\s*)?(?:\[|【)?(?:\s*(?:現成)?句子\s*|Sentences?)(?:\]|】)?(?:\s*[:：])?(.*)$',
             line_clean,
             re.IGNORECASE
         )
@@ -187,20 +238,48 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                     if c:
                         nouns.append(c)
             continue
+
+        if s_header_match:
+            current_section = 'sentence'
+            rest = s_header_match.group(1).strip()
+            if rest:
+                items = re.split(r'[,，;；\t]+', rest)
+                for item in items:
+                    s = format_sentence(item)
+                    if s:
+                        sentences.append(s)
+            continue
             
-        if current_section:
+        # 處於區塊內部
+        if current_section == 'verb':
             items = re.split(r'[,，、;；\t]+', line_clean)
             for item in items:
-                sub_items = item.split()
-                for sub in sub_items:
+                for sub in item.split():
                     c = clean_word(sub)
                     if c:
-                        if current_section == 'verb':
-                            verbs.append(c)
-                        elif current_section == 'noun':
-                            nouns.append(c)
+                        verbs.append(c)
+        elif current_section == 'noun':
+            items = re.split(r'[,，、;；\t]+', line_clean)
+            for item in items:
+                for sub in item.split():
+                    c = clean_word(sub)
+                    if c:
+                        nouns.append(c)
+        elif current_section == 'sentence':
+            items = re.split(r'[,，;；\t]+', line_clean)
+            for item in items:
+                s = format_sentence(item)
+                if s:
+                    sentences.append(s)
+        else:
+            # 若無明確標題，但包含 "..."的"..." 結構的行，自動歸類為句子
+            if re.search(r'"[^"]+"\s*的\s*"[^"]+"', line_clean):
+                s = format_sentence(line_clean)
+                if s:
+                    sentences.append(s)
                             
     verbs = list(dict.fromkeys(verbs))
     nouns = list(dict.fromkeys(nouns))
+    sentences = list(dict.fromkeys(sentences))
     
-    return verbs, nouns
+    return verbs, nouns, sentences

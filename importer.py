@@ -1,6 +1,6 @@
 """
 Google 文件匯入與詞庫解析模組
-支援從 Google Docs 公開連結或文字內容解析動詞與名詞詞庫。
+支援從 Google Docs 公開連結或文字內容解析動詞、名詞與現成句子詞庫。
 """
 
 import re
@@ -22,22 +22,32 @@ DEFAULT_NOUNS = [
     "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
 ]
 
+DEFAULT_SENTENCES = [
+    '"奔跑"的"貓咪"',
+    '"打字"的"工程師"',
+    '"燃燒"的"夢想"',
+    '"飛翔"的"羽翼"',
+    '"思考"的"哲學家"',
+    '"探索"的"旅人"',
+    '"綻放"的"玫瑰"',
+    '"流浪"的"吉他手"',
+    '"等待"的"信件"',
+    '"守護"的"城堡"',
+    '"穿梭"的"時光機"',
+    '"喚醒"的"記憶"'
+]
+
 def extract_doc_id(url_or_id: str) -> str:
     """從 Google Docs 網址或字串中提取 Document ID"""
     text = url_or_id.strip()
-    # 支援標準 Google Doc 網址格式:
-    # https://docs.google.com/document/d/1xxxxxx-xxxx/edit...
     match = re.search(r'docs\.google\.com/document/d/([a-zA-Z0-9_-]+)', text)
     if match:
         return match.group(1)
     
-    # 支援發布到網路格式:
-    # https://docs.google.com/document/d/e/2PACX-xxxx/pub
     match_pub = re.search(r'docs\.google\.com/document/d/e/([a-zA-Z0-9_-]+)', text)
     if match_pub:
         return match_pub.group(1)
     
-    # 如果使用者直接輸入 ID (英數字、底線、減號)
     if re.match(r'^[a-zA-Z0-9_-]{20,}$', text):
         return text
     
@@ -50,7 +60,6 @@ def fetch_google_doc_text(doc_url_or_id: str) -> str:
     """
     doc_id = extract_doc_id(doc_url_or_id)
     
-    # 若是發布到網路的 URL
     if "docs.google.com/document/d/e/" in doc_url_or_id:
         export_url = doc_url_or_id
         if not export_url.endswith('/pub'):
@@ -72,7 +81,6 @@ def fetch_google_doc_text(doc_url_or_id: str) -> str:
     try:
         with urllib.request.urlopen(req, context=ctx, timeout=12) as response:
             final_url = response.geturl()
-            # 檢查是否被重導向至 Google 登入頁面
             if "accounts.google.com" in final_url or "ServiceLogin" in final_url:
                 raise PermissionError(
                     "無法讀取文件：該 Google 文件未開啟公開存取！\n"
@@ -80,14 +88,11 @@ def fetch_google_doc_text(doc_url_or_id: str) -> str:
                 )
             
             raw_bytes = response.read()
-            
-            # 嘗試 UTF-8 (含 BOM 處理)
             try:
                 content = raw_bytes.decode('utf-8-sig')
             except UnicodeDecodeError:
                 content = raw_bytes.decode('utf-8', errors='replace')
                 
-            # 檢查內容是否是 HTML 登入/錯誤頁面
             if "<html" in content.lower() and ("sign in" in content.lower() or "accounts.google.com" in content):
                 raise PermissionError(
                     "無法讀取文件：該 Google 文件需要登入權限！\n"
@@ -111,41 +116,46 @@ def fetch_google_doc_text(doc_url_or_id: str) -> str:
 
 def clean_word(word: str) -> str:
     """清理單詞中的標點、序號與空白"""
-    # 去除序號如 1. 1、 (1) - * •
     w = re.sub(r'^(?:[\d]+[\.、\)]|[\-\*•\(\)（）])\s*', '', word.strip())
-    # 去除引號、括號等
     w = w.strip(' \t\n\r"\'“”‘’[]【】()（）{}')
     return w
 
-def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
+def format_sentence(line: str) -> str:
+    """將句子規範化為 \"動詞\"的\"名詞\" 格式"""
+    raw = re.sub(r'^(?:[\d]+[\.、\)]|[\-\*•\(\)（）])\s*', '', line.strip())
+    raw = raw.strip(' \t\n\r[]【】{}')
+    
+    # 匹配 A 的 B 或 "A" 的 "B"
+    m = re.match(r'^"?(.*?)"?\s*的\s*"?(.*?)"?$', raw)
+    if m and m.group(1).strip() and m.group(2).strip():
+        v = m.group(1).strip().strip('"\'“”‘’')
+        n = m.group(2).strip().strip('"\'“”‘’')
+        return f'"{v}"的"{n}"'
+    return raw
+
+def parse_word_bank(content: str) -> tuple[list[str], list[str], list[str]]:
     """
-    智慧解析文字內容為 (動詞列表, 名詞列表)
-    支援多種格式：
-    1. 區塊標題式：
-       [動詞]
-       奔跑
-       跳躍
-       [名詞]
-       貓咪
-       夢想
-    2. 標籤冒號式：
-       動詞：跑, 跳, 飛
-       名詞：貓, 狗, 鳥
-    3. 雙欄/表格式：
-       動詞    名詞
-       奔跑    貓咪
-       飛翔    夢想
+    智慧解析文字內容為 (動詞列表, 名詞列表, 現成句子列表)
+    支援區塊標題式：
+      [動詞]
+      奔跑
+      [名詞]
+      貓咪
+      [句子]
+      "奔跑"的"貓咪"
     """
     verbs = []
     nouns = []
+    sentences = []
     current_section = None
     
     lines = content.splitlines()
     
-    # 檢查是否為雙欄表頭格式 (例如 第一行包含 動詞 和 名詞)
+    # 檢查是否為雙欄/多欄表頭格式
     is_table_mode = False
     v_col_idx = -1
     n_col_idx = -1
+    s_col_idx = -1
     
     for idx, line in enumerate(lines[:10]):
         cleaned = line.strip()
@@ -161,7 +171,8 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                     v_col_idx = i
                 elif '名詞' in c or 'noun' in c.lower():
                     n_col_idx = i
-            # 表頭之後的行以雙欄方式讀取
+                elif '句' in c or 'sentence' in c.lower():
+                    s_col_idx = i
             lines = lines[idx+1:]
             break
             
@@ -178,23 +189,30 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                 n = clean_word(cols[n_col_idx])
                 if n and not ('名詞' in n or 'noun' in n.lower()):
                     nouns.append(n)
-        return list(dict.fromkeys(verbs)), list(dict.fromkeys(nouns))
+            if s_col_idx != -1 and len(cols) > s_col_idx:
+                s = format_sentence(cols[s_col_idx])
+                if s and not ('句' in s or 'sentence' in s.lower()):
+                    sentences.append(s)
+        return list(dict.fromkeys(verbs)), list(dict.fromkeys(nouns)), list(dict.fromkeys(sentences))
 
-    # 傳統區塊 / 標籤行解析
+    # 傳統區塊標籤格式
     for line in lines:
         line_clean = line.strip()
         if not line_clean:
             continue
             
-        # 匹配動詞區塊標題
         v_header_match = re.match(
             r'^(?:#+\s*)?(?:\[|【)?(?:\s*動詞\s*|Verbs?)(?:\]|】)?(?:\s*[:：])?(.*)$',
             line_clean,
             re.IGNORECASE
         )
-        # 匹配名詞區塊標題
         n_header_match = re.match(
             r'^(?:#+\s*)?(?:\[|【)?(?:\s*名詞\s*|Nouns?)(?:\]|】)?(?:\s*[:：])?(.*)$',
+            line_clean,
+            re.IGNORECASE
+        )
+        s_header_match = re.match(
+            r'^(?:#+\s*)?(?:\[|【)?(?:\s*(?:現成)?句子\s*|Sentences?)(?:\]|】)?(?:\s*[:：])?(.*)$',
             line_clean,
             re.IGNORECASE
         )
@@ -220,22 +238,48 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
                     if c:
                         nouns.append(c)
             continue
+
+        if s_header_match:
+            current_section = 'sentence'
+            rest = s_header_match.group(1).strip()
+            if rest:
+                items = re.split(r'[,，;；\t]+', rest)
+                for item in items:
+                    s = format_sentence(item)
+                    if s:
+                        sentences.append(s)
+            continue
             
-        # 當前在某個區塊內
-        if current_section:
+        # 處於區塊內部
+        if current_section == 'verb':
             items = re.split(r'[,，、;；\t]+', line_clean)
             for item in items:
-                sub_items = item.split()
-                for sub in sub_items:
+                for sub in item.split():
                     c = clean_word(sub)
                     if c:
-                        if current_section == 'verb':
-                            verbs.append(c)
-                        elif current_section == 'noun':
-                            nouns.append(c)
+                        verbs.append(c)
+        elif current_section == 'noun':
+            items = re.split(r'[,，、;；\t]+', line_clean)
+            for item in items:
+                for sub in item.split():
+                    c = clean_word(sub)
+                    if c:
+                        nouns.append(c)
+        elif current_section == 'sentence':
+            items = re.split(r'[,，;；\t]+', line_clean)
+            for item in items:
+                s = format_sentence(item)
+                if s:
+                    sentences.append(s)
+        else:
+            # 若無明確標題，但包含 "..."的"..." 結構的行，自動歸類為句子
+            if re.search(r'"[^"]+"\s*的\s*"[^"]+"', line_clean):
+                s = format_sentence(line_clean)
+                if s:
+                    sentences.append(s)
                             
-    # 去重且保留原有順序
     verbs = list(dict.fromkeys(verbs))
     nouns = list(dict.fromkeys(nouns))
+    sentences = list(dict.fromkeys(sentences))
     
-    return verbs, nouns
+    return verbs, nouns, sentences
