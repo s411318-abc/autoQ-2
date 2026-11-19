@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 動詞 & 名詞 智慧抽籤器</title>
+    <meta name="description" content="動詞與名詞智慧抽籤工具，支援混在一起抽、動詞的名詞句子組合，以及從 Google 文件匯入雲端詞庫。">
+    <!-- 輕巧的現代化樣式 -->
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #eef2ff;
+            --secondary: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px 16px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        /* 頁首標題 */
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* 詞庫統計列 */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .stat-badge {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .stat-badge.verbs { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+        .stat-badge.nouns { color: #059669; border-color: #a7f3d0; background: #ecfdf5; }
+        .stat-badge.total { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
+
+        /* 分頁切換 */
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 6px;
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            gap: 6px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 卡片共用樣式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+
+        /* 模式選擇卡片 */
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .mode-option {
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+            position: relative;
+        }
+
+        .mode-option:hover {
+            border-color: #c7d2fe;
+            background: #fafafa;
+        }
+
+        .mode-option.selected {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .mode-option input[type="radio"] {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            accent-color: var(--primary);
+            width: 18px;
+            height: 18px;
+        }
+
+        .mode-header {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mode-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .mode-example {
+            font-size: 0.82rem;
+            background: rgba(255,255,255,0.7);
+            border: 1px dashed #cbd5e1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: #475569;
+            display: inline-block;
+        }
+
+        /* 控制列 */
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        select, input[type="number"], input[type="text"] {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.2s;
+            background: white;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            user-select: none;
+        }
+
+        .checkbox-label input {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        /* 抽取大按鈕 */
+        .btn-draw {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1.25rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-draw:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+            background: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
+        }
+
+        .btn-draw:active {
+            transform: translateY(0);
+        }
+
+        /* 抽取結果展示區 */
+        .result-container {
+            margin-top: 24px;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .result-header h3 {
+            font-size: 1.1rem;
+            color: var(--text-main);
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-sm:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+        }
+
+        .result-card {
+            background: white;
+            border: 2px solid #e0e7ff;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4f46e5, #06b6d4);
+        }
+
+        .result-text {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #1e1b4b;
+            margin: 8px 0;
+            word-break: break-all;
+        }
+
+        .result-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .result-badge.verb { background: #dbeafe; color: #1e40af; }
+        .result-badge.noun { background: #d1fae5; color: #065f46; }
+        .result-badge.sentence { background: #fef3c7; color: #92400e; }
+
+        @keyframes popIn {
+            0% { transform: scale(0.85); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .empty-placeholder {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+        }
+
+        /* Google Docs 匯入卡片 */
+        .gdoc-box {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .gdoc-box h4 {
+            color: #166534;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        /* 教學指引折疊區塊 */
+        .guide-box {
+            margin-top: 16px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.88rem;
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .guide-box ol {
+            padding-left: 20px;
+            margin-top: 6px;
+        }
+
+        .code-snippet {
+            background: #f1f5f9;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.84rem;
+            margin: 8px 0;
+            display: block;
+            white-space: pre-wrap;
+            border-left: 3px solid var(--primary);
+        }
+
+        /* 詞庫編輯區 */
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 640px) {
+            .editor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .editor-col label {
+            font-weight: 700;
+            font-size: 0.95rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 220px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            resize: vertical;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        /* 歷史記錄列表 */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .history-item {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 18px;
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .history-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .history-tag {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* 提示通知 Toast */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            font-size: 0.92rem;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #toast.error {
+            background: var(--danger);
+        }
+
+        #toast.success {
+            background: var(--success);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 頁首標題與統計 -->
+        <header>
+            <h1>🎯 動詞 & 名詞 智慧抽籤器</h1>
+            <p>混詞抽取 · "動詞"的"名詞" 句型生成 · 支援 Google 文件雲端匯入</p>
+            <div class="stats-bar">
+                <span class="stat-badge verbs" id="badgeVerbs">動詞：載入中...</span>
+                <span class="stat-badge nouns" id="badgeNouns">名詞：載入中...</span>
+                <span class="stat-badge total" id="badgeTotal">總詞庫：載入中...</span>
+            </div>
+        </header>
+
+        <!-- 分頁列 -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-draw')">🎲 抽籤專區</button>
+            <button class="tab-btn" onclick="switchTab('tab-words')">📚 詞庫管理 & Google 文件匯入</button>
+            <button class="tab-btn" onclick="switchTab('tab-history')">📜 歷史紀錄</button>
+        </div>
+
+        <!-- 分頁 1: 抽籤專區 -->
+        <div id="tab-draw" class="tab-content active">
+            <div class="card">
+                <div class="card-title">⚙️ 選擇抽籤模式</div>
+                
+                <div class="mode-grid">
+                    <!-- 模式一 -->
+                    <div class="mode-option selected" id="optModeMixed" onclick="selectMode('mixed')">
+                        <input type="radio" name="drawMode" value="mixed" checked>
+                        <div class="mode-header">🎲 模式一：混在一起抽</div>
+                        <div class="mode-desc">將動詞和名詞全部混合在同一大池中隨機抽取。</div>
+                        <div class="mode-example">例：奔跑、貓咪、思考、星星</div>
+                    </div>
+
+                    <!-- 模式二 -->
+                    <div class="mode-option" id="optModeSentence" onclick="selectMode('sentence')">
+                        <input type="radio" name="drawMode" value="sentence">
+                        <div class="mode-header">📝 模式二："動詞" 的 "名詞" 句子</div>
+                        <div class="mode-desc">每次各抽一個動詞與名詞，結合成完整的想像語句。</div>
+                        <div class="mode-example">例："奔跑" 的 "貓咪"、"燃燒" 的 "夢想"</div>
+                    </div>
+                </div>
+
+                <!-- 抽籤選項控制列 -->
+                <div class="controls-row">
+                    <div class="control-group">
+                        <label for="drawCount">抽籤數量：</label>
+                        <select id="drawCount">
+                            <option value="1">1 個 / 組</option>
+                            <option value="2">2 個 / 組</option>
+                            <option value="3" selected>3 個 / 組</option>
+                            <option value="5">5 個 / 組</option>
+                            <option value="10">10 個 / 組</option>
+                            <option value="custom">自訂數量...</option>
+                        </select>
+                        <input type="number" id="customCount" min="1" max="100" value="7" style="display:none; width:70px;">
+                    </div>
+
+                    <div class="control-group">
+                        <label class="checkbox-label" title="勾選後，抽出過的詞不會再出現，直到全部抽完才重設">
+                            <input type="checkbox" id="chkNoRepeat"> 不重複抽取 (不放回)
+                        </label>
+                    </div>
+
+                    <!-- 模式一專屬設定 -->
+                    <div class="control-group" id="mixedOptions">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="chkShowType" checked> 顯示詞性標籤（動詞/名詞）
+                        </label>
+                    </div>
+
+                    <!-- 模式二專屬設定 -->
+                    <div class="control-group" id="sentenceOptions" style="display: none;">
+                        <label for="selTemplate">句型格式：</label>
+                        <select id="selTemplate" onchange="handleTemplateChange()">
+                            <option value='"{verb}" 的 "{noun}"'>"動詞" 的 "名詞" (帶雙引號)</option>
+                            <option value='{verb}的{noun}'>動詞的名詞 (自然緊湊)</option>
+                            <option value='{verb} 的 {noun}'>動詞 的 名詞 (自然空格)</option>
+                            <option value='一個{verb}的{noun}'>一個[動詞]的[名詞]</option>
+                            <option value='正在{verb}的{noun}'>正在[動詞]的[名詞]</option>
+                            <option value='custom'>自訂句型格式...</option>
+                        </select>
+                        <input type="text" id="customTemplate" placeholder="例：想要{verb}的{noun}" style="display:none; width:180px;">
+                    </div>
+                </div>
+
+                <!-- 抽取大按鈕 -->
+                <button class="btn-draw" id="btnRunDraw" onclick="handleDraw()">
+                    <span>🎲</span> 立即抽籤！
+                </button>
+
+                <!-- 抽出結果展示 -->
+                <div class="result-container" id="resultContainer">
+                    <div class="result-header">
+                        <h3>🎉 抽籤結果</h3>
+                        <div class="result-actions">
+                            <button class="btn-sm" onclick="copyResults()">📋 複製全部結果</button>
+                            <button class="btn-sm" onclick="resetRemainingPools()">🔄 重設抽籤池</button>
+                        </div>
+                    </div>
+
+                    <div class="result-grid" id="resultGrid">
+                        <div class="empty-placeholder" style="grid-column: 1 / -1;">
+                            點擊上方「🎲 立即抽籤！」按鈕開始抽取
+                        </div>
+                    </div>
+
+                    <div id="noticeMsg" style="margin-top: 10px; font-size: 0.85rem; color: #d97706; text-align: center;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分頁 2: 詞庫管理 & Google 文件匯入 -->
+        <div id="tab-words" class="tab-content">
+            <!-- Google Docs 匯入卡片 -->
+            <div class="gdoc-box">
+                <h4>🌐 從 Google 文件匯入雲端詞庫</h4>
+                <p style="font-size: 0.88rem; color: #166534;">
+                    只需貼上您的 Google 文件連結或 Document ID，即可一鍵將雲端文件中的動詞與名詞同步進系統！
+                </p>
+                <div class="input-row">
+                    <input type="text" id="gdocUrl" placeholder="請貼上 Google Docs 網址 (如 https://docs.google.com/document/d/.../edit)">
+                    <button class="btn-success" id="btnImportGdoc" onclick="importGoogleDoc()">
+                        <span>📥</span> 立即匯入
+                    </button>
+                </div>
+
+                <!-- 折疊指引與範本 -->
+                <div class="guide-box">
+                    <strong>💡 Google 文件設定 3 步驟與範例格式：</strong>
+                    <ol>
+                        <li>在您的 Google 文件右上角點擊<strong>「共用」</strong>。</li>
+                        <li>將「一般存取權」由「限制」改為<strong>「知道連結的任何人」</strong>（檢視者權限即可）。</li>
+                        <li>複製連結並貼在上方輸入框，按下「立即匯入」！</li>
+                    </ol>
+                    <div style="margin-top: 8px;"><strong>推薦的文件撰寫格式範本（直接在文件中輸入即可）：</strong></div>
+                    <div class="code-snippet">[動詞]
+奔跑
+跳躍
+飛翔
+思考、創造、歌唱
+
+[名詞]
+貓咪
+夢想
+星星
+微風、雨滴、影子</div>
+                    <span style="font-size: 0.8rem; color: #64748b;">
+                        * 系統亦支援：逗號/頓號分隔（如 <code>動詞：跑、跳、飛</code>）、項目清單（<code>- 貓咪</code>）、雙欄表格等。
+                    </span>
+                </div>
+            </div>
+
+            <!-- 本地即時編輯詞庫 -->
+            <div class="card">
+                <div class="card-title" style="justify-content: space-between;">
+                    <span>✏️ 線上編輯當前詞庫</span>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <label class="btn-sm" style="cursor: pointer; display: inline-flex; align-items: center;">
+                            📂 匯入本機 TXT 檔案
+                            <input type="file" id="fileInput" accept=".txt" style="display: none;" onchange="handleFileImport(event)">
+                        </label>
+                        <button class="btn-sm" onclick="resetToDefault()">🔄 載入預設示範詞庫</button>
+                    </div>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px;">
+                    每行輸入一個詞彙，或使用逗號 <code>,</code> 、頓號 <code>、</code> 分隔。修改完成後點擊下方「儲存並套用」即可立即生效並儲存於瀏覽器中。
+                </p>
+
+                <div class="editor-grid">
+                    <div class="editor-col">
+                        <label for="txtVerbs" style="color: #2563eb;">🏃‍♂️ 動詞列表 (<span id="cntVerbs">0</span>)</label>
+                        <textarea id="txtVerbs" placeholder="一行一個動詞..."></textarea>
+                    </div>
+                    <div class="editor-col">
+                        <label for="txtNouns" style="color: #059669;">📦 名詞列表 (<span id="cntNouns">0</span>)</label>
+                        <textarea id="txtNouns" placeholder="一行一個名詞..."></textarea>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-primary" onclick="saveWordBank()">
+                        <span>💾</span> 儲存並套用詞庫
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分頁 3: 歷史紀錄 -->
+        <div id="tab-history" class="tab-content">
+            <div class="card">
+                <div class="card-title" style="justify-content: space-between;">
+                    <span>📜 抽籤歷史紀錄</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-sm" onclick="copyAllHistory()">📋 複製所有紀錄</button>
+                        <button class="btn-sm" onclick="clearHistory()" style="color: var(--danger);">🗑️ 清空紀錄</button>
+                    </div>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="empty-placeholder">尚無任何抽籤歷史紀錄</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 浮動訊息通知 -->
+    <div id="toast"></div>
+
+    <script>
+        // 預設示範詞庫
+        const DEFAULT_VERBS = [
+            "奔跑", "跳躍", "飛翔", "思考", "凝視", "探索", "歌唱", "燃燒",
+            "綻放", "流浪", "傾聽", "繪製", "追逐", "擁抱", "等待", "發明",
+            "漂浮", "穿梭", "喚醒", "守護", "編織", "閃爍", "跨越", "紀錄"
+        ];
+
+        const DEFAULT_NOUNS = [
+            "貓咪", "夢想", "星星", "微風", "海浪", "時光", "宇宙", "火焰",
+            "森林", "影子", "雨滴", "記憶", "旅人", "秘密", "指南針", "島嶼",
+            "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
+        ];
+
+        // 狀態管理 (支援 Client-side 離線執行與 LocalStorage 持久化)
+        let verbs = [];
+        let nouns = [];
+        let remainingMixed = [];
+        let remainingVerbs = [];
+        let remainingNouns = [];
+        let historyRecords = [];
+        let currentMode = 'mixed';
+        let latestResults = [];
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedData();
+            initRemainingPools();
+            updateUIStats();
+            renderHistory();
+
+            document.getElementById('drawCount').addEventListener('change', (e) => {
+                const customInput = document.getElementById('customCount');
+                customInput.style.display = e.target.value === 'custom' ? 'inline-block' : 'none';
+            });
+        });
+
+        // 載入 localStorage 資料或使用預設值
+        function loadSavedData() {
+            const savedVerbs = localStorage.getItem('draw_verbs');
+            const savedNouns = localStorage.getItem('draw_nouns');
+            const savedHistory = localStorage.getItem('draw_history');
+
+            verbs = savedVerbs ? JSON.parse(savedVerbs) : [...DEFAULT_VERBS];
+            nouns = savedNouns ? JSON.parse(savedNouns) : [...DEFAULT_NOUNS];
+            historyRecords = savedHistory ? JSON.parse(savedHistory) : [];
+        }
+
+        // 儲存資料至 localStorage
+        function persistData() {
+            localStorage.setItem('draw_verbs', JSON.stringify(verbs));
+            localStorage.setItem('draw_nouns', JSON.stringify(nouns));
+            localStorage.setItem('draw_history', JSON.stringify(historyRecords));
+        }
+
+        // 初始化不放回抽籤池
+        function initRemainingPools() {
+            remainingVerbs = shuffle([...verbs]);
+            remainingNouns = shuffle([...nouns]);
+            
+            const mixed = [];
+            verbs.forEach(v => mixed.push({ word: v, type: '動詞' }));
+            nouns.forEach(n => mixed.push({ word: n, type: '名詞' }));
+            remainingMixed = shuffle(mixed);
+        }
+
+        // 隨機重排陣列 (Fisher-Yates)
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // 更新介面計數器
+        function updateUIStats() {
+            document.getElementById('badgeVerbs').textContent = `動詞：${verbs.length} 個`;
+            document.getElementById('badgeNouns').textContent = `名詞：${nouns.length} 個`;
+            document.getElementById('badgeTotal').textContent = `總詞庫：${verbs.length + nouns.length} 個`;
+
+            document.getElementById('cntVerbs').textContent = verbs.length;
+            document.getElementById('cntNouns').textContent = nouns.length;
+
+            document.getElementById('txtVerbs').value = verbs.join('\n');
+            document.getElementById('txtNouns').value = nouns.join('\n');
+        }
+
+        // 分頁切換
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'tab-words') {
+                updateUIStats();
+            } else if (tabId === 'tab-history') {
+                renderHistory();
+            }
+        }
+
+        // 模式切換
+        function selectMode(mode) {
+            currentMode = mode;
+            document.getElementById('optModeMixed').classList.toggle('selected', mode === 'mixed');
+            document.getElementById('optModeSentence').classList.toggle('selected', mode === 'sentence');
+
+            document.querySelector(`input[name="drawMode"][value="${mode}"]`).checked = true;
+
+            if (mode === 'mixed') {
+                document.getElementById('mixedOptions').style.display = 'flex';
+                document.getElementById('sentenceOptions').style.display = 'none';
+            } else {
+                document.getElementById('mixedOptions').style.display = 'none';
+                document.getElementById('sentenceOptions').style.display = 'flex';
+            }
+        }
+
+        function handleTemplateChange() {
+            const sel = document.getElementById('selTemplate');
+            const custom = document.getElementById('customTemplate');
+            custom.style.display = sel.value === 'custom' ? 'inline-block' : 'none';
+        }
+
+        // 執行抽籤 (純前端毫秒級高響應，並相容 Vercel / 離線運作)
+        function handleDraw() {
+            const btn = document.getElementById('btnRunDraw');
+            btn.disabled = true;
+
+            const countVal = document.getElementById('drawCount').value;
+            let count = countVal === 'custom' ? parseInt(document.getElementById('customCount').value) || 1 : parseInt(countVal);
+            count = Math.max(1, count);
+
+            const noRepeat = document.getElementById('chkNoRepeat').checked;
+            let notice = '';
+            let results = [];
+
+            if (currentMode === 'mixed') {
+                const allPool = [];
+                verbs.forEach(v => allPool.push({ word: v, type: '動詞' }));
+                nouns.forEach(n => allPool.push({ word: n, type: '名詞' }));
+
+                if (allPool.length === 0) {
+                    showToast('詞庫為空，請先加入動詞或名詞！', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                const showType = document.getElementById('chkShowType').checked;
+
+                if (!noRepeat) {
+                    // 放回抽
+                    for (let i = 0; i < count; i++) {
+                        const item = allPool[Math.floor(Math.random() * allPool.length)];
+                        const text = showType ? `${item.word}（${item.type}）` : item.word;
+                        results.push({ text, word: item.word, type: item.type });
+                    }
+                } else {
+                    // 不重複抽
+                    if (remainingMixed.length < count) {
+                        notice = `剩餘詞庫不足 ${count} 個，已抽出剩餘詞並自動循環重設詞庫！`;
+                        results.push(...remainingMixed.map(item => ({
+                            text: showType ? `${item.word}（${item.type}）` : item.word,
+                            word: item.word,
+                            type: item.type
+                        })));
+                        const needed = count - remainingMixed.length;
+                        initRemainingPools();
+                        for (let i = 0; i < Math.min(needed, remainingMixed.length); i++) {
+                            const item = remainingMixed.pop();
+                            results.push({
+                                text: showType ? `${item.word}（${item.type}）` : item.word,
+                                word: item.word,
+                                type: item.type
+                            });
+                        }
+                    } else {
+                        for (let i = 0; i < count; i++) {
+                            const item = remainingMixed.pop();
+                            results.push({
+                                text: showType ? `${item.word}（${item.type}）` : item.word,
+                                word: item.word,
+                                type: item.type
+                            });
+                        }
+                    }
+                }
+            } else {
+                // 模式二：句型模式
+                if (verbs.length === 0 || nouns.length === 0) {
+                    showToast('句型模式需要同時具備動詞與名詞！', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                let tpl = document.getElementById('selTemplate').value;
+                if (tpl === 'custom') {
+                    tpl = document.getElementById('customTemplate').value.trim() || '"{verb}" 的 "{noun}"';
+                }
+
+                if (!noRepeat) {
+                    for (let i = 0; i < count; i++) {
+                        const v = verbs[Math.floor(Math.random() * verbs.length)];
+                        const n = nouns[Math.floor(Math.random() * nouns.length)];
+                        const sentence = tpl.replace('{verb}', v).replace('{noun}', n);
+                        results.push({ text: sentence, verb: v, noun: n, type: '句型' });
+                    }
+                } else {
+                    // 不重複抽
+                    if (remainingVerbs.length < count || remainingNouns.length < count) {
+                        notice = '動詞或名詞剩餘量不足，已自動循環重置詞庫！';
+                    }
+                    for (let i = 0; i < count; i++) {
+                        if (remainingVerbs.length === 0) remainingVerbs = shuffle([...verbs]);
+                        if (remainingNouns.length === 0) remainingNouns = shuffle([...nouns]);
+                        const v = remainingVerbs.pop();
+                        const n = remainingNouns.pop();
+                        const sentence = tpl.replace('{verb}', v).replace('{noun}', n);
+                        results.push({ text: sentence, verb: v, noun: n, type: '句型' });
+                    }
+                }
+            }
+
+            latestResults = results.map(r => r.text);
+            renderResultCards(results);
+            document.getElementById('noticeMsg').textContent = notice ? '⚠️ ' + notice : '';
+
+            // 紀錄歷史
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+            historyRecords.unshift({
+                timestamp: timeStr,
+                mode: currentMode === 'mixed' ? '混在一起抽' : '動詞的名詞句子',
+                count: count,
+                results: latestResults
+            });
+            if (historyRecords.length > 50) historyRecords.pop();
+            persistData();
+
+            playDrawSound();
+            btn.disabled = false;
+        }
+
+        // 渲染結果卡片
+        function renderResultCards(results) {
+            const grid = document.getElementById('resultGrid');
+            grid.innerHTML = '';
+
+            results.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.style.animationDelay = `${idx * 0.05}s`;
+
+                let badgeHtml = '';
+                if (currentMode === 'mixed') {
+                    const isVerb = item.type === '動詞';
+                    badgeHtml = `<span class="result-badge ${isVerb ? 'verb' : 'noun'}">${item.type}</span>`;
+                } else {
+                    badgeHtml = `<span class="result-badge sentence">句型組合</span>`;
+                }
+
+                card.innerHTML = `
+                    ${badgeHtml}
+                    <div class="result-text">${item.text}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 複製抽取結果
+        function copyResults() {
+            if (!latestResults || latestResults.length === 0) {
+                showToast('目前尚無結果可複製', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(latestResults.join('\n')).then(() => {
+                showToast('已複製全部抽取結果至剪貼簿！', 'success');
+            }).catch(() => {
+                showToast('複製失敗，請手動複製', 'error');
+            });
+        }
+
+        // 重設抽籤剩餘池
+        function resetRemainingPools() {
+            initRemainingPools();
+            showToast('已重設不重複抽籤池！', 'success');
+        }
+
+        // 智慧解析純文字中的動詞與名詞
+        function parseWordBankClient(text) {
+            let extractedVerbs = [];
+            let extractedNouns = [];
+            let currentSection = null;
+
+            const lines = text.split(/\r?\n/);
+            
+            // 檢查雙欄表頭
+            let isTable = false;
+            let vCol = -1, nCol = -1;
+            for (let i = 0; i < Math.min(10, lines.length); i++) {
+                const cols = lines[i].split(/[\t,|｜]+/).map(s => s.trim()).filter(Boolean);
+                const hasV = cols.some(c => c.includes('動詞') || c.toLowerCase().includes('verb'));
+                const hasN = cols.some(c => c.includes('名詞') || c.toLowerCase().includes('noun'));
+                if (hasV && hasN) {
+                    isTable = true;
+                    cols.forEach((c, idx) => {
+                        if (c.includes('動詞') || c.toLowerCase().includes('verb')) vCol = idx;
+                        if (c.includes('名詞') || c.toLowerCase().includes('noun')) nCol = idx;
+                    });
+                    lines.splice(0, i + 1);
+                    break;
+                }
+            }
+
+            if (isTable && vCol !== -1 && nCol !== -1) {
+                lines.forEach(l => {
+                    if (!l.trim()) return;
+                    const cols = l.split(/[\t,|｜]+/).map(cleanWordClient);
+                    if (cols.length > vCol && cols[vCol] && !cols[vCol].includes('動詞')) extractedVerbs.push(cols[vCol]);
+                    if (cols.length > nCol && cols[nCol] && !cols[nCol].includes('名詞')) extractedNouns.push(cols[nCol]);
+                });
+                return {
+                    verbs: [...new Set(extractedVerbs)],
+                    nouns: [...new Set(extractedNouns)]
+                };
+            }
+
+            // 區塊與標籤格式
+            lines.forEach(line => {
+                const l = line.trim();
+                if (!l) return;
+
+                const vMatch = l.match(/^(?:#+\s*)?(?:\[|【)?(?:\s*動詞\s*|Verbs?)(?:\]|】)?(?:\s*[:：])?(.*)$/i);
+                const nMatch = l.match(/^(?:#+\s*)?(?:\[|【)?(?:\s*名詞\s*|Nouns?)(?:\]|】)?(?:\s*[:：])?(.*)$/i);
+
+                if (vMatch) {
+                    currentSection = 'verb';
+                    if (vMatch[1].trim()) {
+                        vMatch[1].split(/[,，、;；\s\t/]+/).forEach(w => {
+                            const c = cleanWordClient(w);
+                            if (c) extractedVerbs.push(c);
+                        });
+                    }
+                    return;
+                }
+
+                if (nMatch) {
+                    currentSection = 'noun';
+                    if (nMatch[1].trim()) {
+                        nMatch[1].split(/[,，、;；\s\t/]+/).forEach(w => {
+                            const c = cleanWordClient(w);
+                            if (c) extractedNouns.push(c);
+                        });
+                    }
+                    return;
+                }
+
+                if (currentSection) {
+                    l.split(/[,，、;；\t]+/).forEach(part => {
+                        part.split(/\s+/).forEach(w => {
+                            const c = cleanWordClient(w);
+                            if (c) {
+                                if (currentSection === 'verb') extractedVerbs.push(c);
+                                else if (currentSection === 'noun') extractedNouns.push(c);
+                            }
+                        });
+                    });
+                }
+            });
+
+            return {
+                verbs: [...new Set(extractedVerbs)],
+                nouns: [...new Set(extractedNouns)]
+            };
+        }
+
+        function cleanWordClient(w) {
+            return w.replace(/^[\d\.\-\*•、\(\)（）\s]+/, '').replace(/^["'“”‘’\[\]【】\(\)\{\}\s]+|["'“”‘’\[\]【】\(\)\{\}\s]+$/g, '').trim();
+        }
+
+        // 從 Google 文件匯入
+        async function importGoogleDoc() {
+            const urlInput = document.getElementById('gdocUrl');
+            const url = urlInput.value.trim();
+            if (!url) {
+                showToast('請先輸入 Google Docs 網址或 ID！', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnImportGdoc');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> 正在下載解析...';
+
+            try {
+                // 優先調用 /api/import-google-doc (支援 Vercel Serverless 與 本機 app.py)
+                const res = await fetch('/api/import-google-doc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await res.json();
+
+                if (!res.ok || data.error) {
+                    throw new Error(data.error || '無法匯入 Google 文件');
+                }
+
+                verbs = data.verbs || [];
+                nouns = data.nouns || [];
+                persistData();
+                initRemainingPools();
+                updateUIStats();
+                showToast(`成功匯入！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個`, 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📥</span> 立即匯入';
+            }
+        }
+
+        // 匯入本機 TXT 檔案
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parsed = parseWordBankClient(text);
+                if (parsed.verbs.length === 0 && parsed.nouns.length === 0) {
+                    showToast('無法從檔案辨識出動詞或名詞，請確認格式標註 [動詞] 與 [名詞]', 'error');
+                    return;
+                }
+
+                if (parsed.verbs.length > 0) verbs = parsed.verbs;
+                if (parsed.nouns.length > 0) nouns = parsed.nouns;
+
+                persistData();
+                initRemainingPools();
+                updateUIStats();
+                showToast(`本機檔案匯入成功！動詞 ${parsed.verbs.length} 個，名詞 ${parsed.nouns.length} 個`, 'success');
+            };
+            reader.readAsText(file, 'utf-8');
+            event.target.value = '';
+        }
+
+        // 儲存文字框編輯的詞庫
+        function saveWordBank() {
+            const vText = document.getElementById('txtVerbs').value;
+            const nText = document.getElementById('txtNouns').value;
+
+            const newV = vText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
+            const newN = nText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
+
+            if (newV.length === 0 && newN.length === 0) {
+                showToast('動詞與名詞不能同時為空！', 'error');
+                return;
+            }
+
+            verbs = [...new Set(newV)];
+            nouns = [...new Set(newN)];
+            persistData();
+            initRemainingPools();
+            updateUIStats();
+            showToast(`詞庫更新成功！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個`, 'success');
+        }
+
+        // 還原預設詞庫
+        function resetToDefault() {
+            if (!confirm('確定要還原為系統預設的示範詞庫嗎？現有自訂內容將被覆蓋。')) return;
+            verbs = [...DEFAULT_VERBS];
+            nouns = [...DEFAULT_NOUNS];
+            persistData();
+            initRemainingPools();
+            updateUIStats();
+            showToast('已還原為預設示範詞庫！', 'success');
+        }
+
+        // 渲染歷史紀錄
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            if (!historyRecords || historyRecords.length === 0) {
+                container.innerHTML = '<div class="empty-placeholder">尚無任何抽籤歷史紀錄</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            historyRecords.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'history-item';
+                row.innerHTML = `
+                    <div class="history-item-header">
+                        <span><strong>${item.mode}</strong> (抽 ${item.count} 個)</span>
+                        <span>${item.timestamp}</span>
+                    </div>
+                    <div class="history-tags">
+                        ${item.results.map(r => `<span class="history-tag">${r}</span>`).join('')}
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // 清空歷史紀錄
+        function clearHistory() {
+            if (!confirm('確定要清空所有抽籤歷史紀錄嗎？')) return;
+            historyRecords = [];
+            persistData();
+            renderHistory();
+            showToast('已清空歷史紀錄', 'success');
+        }
+
+        // 複製全部歷史紀錄
+        function copyAllHistory() {
+            if (!historyRecords || historyRecords.length === 0) {
+                showToast('無歷史紀錄可複製', 'error');
+                return;
+            }
+            const lines = historyRecords.map(item => `[${item.timestamp}] ${item.mode} (${item.count}個): ${item.results.join(', ')}`);
+            navigator.clipboard.writeText(lines.join('\n')).then(() => {
+                showToast('已複製所有歷史紀錄至剪貼簿！', 'success');
+            });
+        }
+
+        // 輕巧的 Web Audio API 抽籤音效
+        function playDrawSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 和弦
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.05);
+                    gain.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.05 + 0.28);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + i * 0.05);
+                    osc.stop(ctx.currentTime + i * 0.05 + 0.28);
+                });
+            } catch (e) {}
+        }
+
+        // 訊息提示 (Toast)
+        function showToast(msg, type = 'normal') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = 'show ' + type;
+            setTimeout(() => {
+                toast.className = '';
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
