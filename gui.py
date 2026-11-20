@@ -4,6 +4,7 @@
 支援：
 1. 混在一起抽
 2. 隨機組裝句子
+3. 抽取完整句子 ("動詞"的"名詞"，從獨立 Google 文件讀取)
 """
 
 import tkinter as tk
@@ -17,13 +18,14 @@ class DrawAppGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("🎯 動詞 & 名詞 智慧抽籤器 (桌面版)")
-        self.root.geometry("680x740")
-        self.root.minsize(600, 620)
+        self.root.geometry("720x760")
+        self.root.minsize(640, 640)
 
-        # 初始化抽籤引擎
+        # 初始化抽籤引擎 (含完整句子庫)
         self.drawer_engine = drawer.WordDrawer(
             importer.DEFAULT_VERBS, 
-            importer.DEFAULT_NOUNS
+            importer.DEFAULT_NOUNS,
+            importer.DEFAULT_SENTENCES
         )
         
         # 設定風格樣式
@@ -56,7 +58,7 @@ class DrawAppGUI:
         
         lbl_title = ttk.Label(header_frame, text="🎯 動詞 & 名詞 智慧抽籤器", style="Header.TLabel")
         lbl_title.pack(anchor="center")
-        lbl_sub = ttk.Label(header_frame, text="支援 Google 文件匯入 · 混抽 · 隨機組句", style="SubHeader.TLabel")
+        lbl_sub = ttk.Label(header_frame, text="支援雙 Google 文件匯入 · 混抽 · 隨機組句 · 抽取完整句子", style="SubHeader.TLabel")
         lbl_sub.pack(anchor="center", pady=(2, 6))
 
         # 詞庫管理區塊
@@ -69,7 +71,10 @@ class DrawAppGUI:
         self.lbl_stats = ttk.Label(bank_top, text="詞庫狀態載入中...", style="Stats.TLabel")
         self.lbl_stats.pack(side=tk.LEFT, padx=4)
 
-        btn_gdoc = ttk.Button(bank_top, text="🌐 從 Google 文件匯入", command=self.open_google_doc_dialog)
+        btn_gdoc_sentence = ttk.Button(bank_top, text="📄 匯入句子文件", command=self.open_sentence_google_doc_dialog)
+        btn_gdoc_sentence.pack(side=tk.RIGHT, padx=4)
+
+        btn_gdoc = ttk.Button(bank_top, text="🌐 匯入詞彙文件", command=self.open_google_doc_dialog)
         btn_gdoc.pack(side=tk.RIGHT, padx=4)
 
         btn_edit = ttk.Button(bank_top, text="✏️ 檢視/手動編輯", command=self.open_edit_dialog)
@@ -91,6 +96,10 @@ class DrawAppGUI:
         r2 = ttk.Radiobutton(mode_frame, text="🔀 模式二：隨機組裝句子 (\"動詞\" 的 \"名詞\")", 
                              variable=self.var_mode, value="sentence", command=self.on_mode_change)
         r2.pack(anchor="w", pady=2)
+
+        r3 = ttk.Radiobutton(mode_frame, text="📄 模式三：抽取完整句子 (\"動詞\"的\"名詞\" · 獨立句子文件)", 
+                             variable=self.var_mode, value="complete_sentence", command=self.on_mode_change)
+        r3.pack(anchor="w", pady=2)
 
         # 細節選項
         opt_frame = ttk.Frame(settings_frame)
@@ -160,13 +169,16 @@ class DrawAppGUI:
         if mode == "mixed":
             self.sentence_opt_frame.pack_forget()
             self.chk_show_type.grid(row=1, column=0, columnspan=3, sticky="w", padx=4, pady=4)
-        else:
+        elif mode == "sentence":
             self.chk_show_type.grid_remove()
             self.sentence_opt_frame.pack(fill=tk.X, pady=4)
+        else:  # complete_sentence
+            self.chk_show_type.grid_remove()
+            self.sentence_opt_frame.pack_forget()
 
     def update_stats_display(self):
         stats = self.drawer_engine.get_stats()
-        text = f"動詞: {stats['total_verbs']} | 名詞: {stats['total_nouns']} | 總計: {stats['total_words']}"
+        text = f"動詞: {stats['total_verbs']} | 名詞: {stats['total_nouns']} | 完整句子: {stats['total_sentences']}"
         self.lbl_stats.config(text=text)
 
     def do_draw(self):
@@ -181,7 +193,7 @@ class DrawAppGUI:
         if mode == "mixed":
             show_type = self.var_show_type.get()
             res = self.drawer_engine.draw_mixed(count=count, allow_repeat=allow_repeat, show_type=show_type)
-        else:
+        elif mode == "sentence":
             tpl_choice = self.combo_template.get()
             if '帶引號' in tpl_choice:
                 template = '"{verb}" 的 "{noun}"'
@@ -197,6 +209,8 @@ class DrawAppGUI:
                 template = '"{verb}" 的 "{noun}"'
 
             res = self.drawer_engine.draw_sentence(count=count, allow_repeat=allow_repeat, template=template)
+        else:
+            res = self.drawer_engine.draw_complete_sentence(count=count, allow_repeat=allow_repeat)
 
         if "error" in res and res["error"]:
             messagebox.showerror("錯誤", res["error"])
@@ -262,30 +276,69 @@ class DrawAppGUI:
 
         threading.Thread(target=task, daemon=True).start()
 
+    def open_sentence_google_doc_dialog(self):
+        default_url = getattr(importer, "DEFAULT_SENTENCE_GDOC_URL", "https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing")
+        url = simpledialog.askstring(
+            "從獨立 Google 文件匯入完整句子",
+            "請貼上完整句子 Google 文件網址或 Document ID：\n\n"
+            "※ 每行一句，系統會自動規範為 \"動詞\"的\"名詞\" 格式\n"
+            "※ 請確保 Google 文件權限已設為「知道連結的任何人都能查看」",
+            initialvalue=default_url,
+            parent=self.root
+        )
+        if not url:
+            return
+
+        def task():
+            try:
+                content = importer.fetch_google_doc_text(url)
+                sentences = importer.parse_sentence_bank(content)
+                if not sentences:
+                    self.root.after(0, lambda: messagebox.showerror(
+                        "匯入失敗", "無法從文件中解析出任何完整句子！\n請確認文件內已填入句子（每行一句，例如：\"奔跑\"的\"貓咪\" 或 奔跑的貓咪）。"
+                    ))
+                    return
+
+                self.drawer_engine.set_sentence_bank(sentences)
+                self.root.after(0, lambda: [
+                    self.update_stats_display(),
+                    messagebox.showinfo("匯入成功", f"成功載入完整句子庫！\n完整句子：{len(sentences)} 句")
+                ])
+            except Exception as e:
+                self.root.after(0, lambda err=str(e): messagebox.showerror("匯入錯誤", err))
+
+        threading.Thread(target=task, daemon=True).start()
+
     def open_edit_dialog(self):
         # 詞庫編輯子視窗
         win = tk.Toplevel(self.root)
         win.title("✏️ 檢視與編輯詞庫")
-        win.geometry("560x480")
-        win.minsize(480, 380)
+        win.geometry("760x480")
+        win.minsize(640, 380)
 
         top_f = ttk.Frame(win, padding=10)
         top_f.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(top_f, text="動詞清單 (每行一個)：").grid(row=0, column=0, sticky="w", pady=(0, 4))
         ttk.Label(top_f, text="名詞清單 (每行一個)：").grid(row=0, column=1, sticky="w", pady=(0, 4))
+        ttk.Label(top_f, text="完整句子清單 (\"動詞\"的\"名詞\")：").grid(row=0, column=2, sticky="w", pady=(0, 4))
 
-        txt_v = tk.Text(top_f, width=24, height=15)
-        txt_v.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
+        txt_v = tk.Text(top_f, width=18, height=15)
+        txt_v.grid(row=1, column=0, sticky="nsew", padx=(0, 4))
         txt_v.insert(tk.END, "\n".join(self.drawer_engine.verbs))
 
-        txt_n = tk.Text(top_f, width=24, height=15)
-        txt_n.grid(row=1, column=1, sticky="nsew", padx=(6, 0))
+        txt_n = tk.Text(top_f, width=18, height=15)
+        txt_n.grid(row=1, column=1, sticky="nsew", padx=(4, 4))
         txt_n.insert(tk.END, "\n".join(self.drawer_engine.nouns))
+
+        txt_s = tk.Text(top_f, width=24, height=15)
+        txt_s.grid(row=1, column=2, sticky="nsew", padx=(4, 0))
+        txt_s.insert(tk.END, "\n".join(self.drawer_engine.sentences))
 
         top_f.rowconfigure(1, weight=1)
         top_f.columnconfigure(0, weight=1)
         top_f.columnconfigure(1, weight=1)
+        top_f.columnconfigure(2, weight=1)
 
         btn_box = ttk.Frame(win, padding=10)
         btn_box.pack(fill=tk.X)
@@ -293,16 +346,19 @@ class DrawAppGUI:
         def save():
             v_raw = txt_v.get("1.0", tk.END)
             n_raw = txt_n.get("1.0", tk.END)
+            s_raw = txt_s.get("1.0", tk.END)
 
             full_text = f"[動詞]\n{v_raw}\n[名詞]\n{n_raw}"
             verbs, nouns = importer.parse_word_bank(full_text)
+            sentences = importer.parse_sentence_bank(s_raw)
 
-            if not verbs and not nouns:
-                messagebox.showerror("錯誤", "動詞與名詞不能同時為空！", parent=win)
+            if not verbs and not nouns and not sentences:
+                messagebox.showerror("錯誤", "動詞、名詞與完整句子不能同時為空！", parent=win)
                 return
             self.drawer_engine.set_word_bank(verbs, nouns)
+            self.drawer_engine.set_sentence_bank(sentences)
             self.update_stats_display()
-            messagebox.showinfo("成功", f"詞庫已更新！\n動詞: {len(verbs)} 個，名詞: {len(nouns)} 個", parent=win)
+            messagebox.showinfo("成功", f"詞庫已更新！\n動詞: {len(verbs)} 個，名詞: {len(nouns)} 個，完整句子: {len(sentences)} 句", parent=win)
             win.destroy()
 
         def restore():
@@ -311,11 +367,14 @@ class DrawAppGUI:
                     importer.DEFAULT_VERBS, 
                     importer.DEFAULT_NOUNS
                 )
+                self.drawer_engine.set_sentence_bank(importer.DEFAULT_SENTENCES)
                 self.update_stats_display()
                 txt_v.delete("1.0", tk.END)
                 txt_v.insert(tk.END, "\n".join(self.drawer_engine.verbs))
                 txt_n.delete("1.0", tk.END)
                 txt_n.insert(tk.END, "\n".join(self.drawer_engine.nouns))
+                txt_s.delete("1.0", tk.END)
+                txt_s.insert(tk.END, "\n".join(self.drawer_engine.sentences))
 
         ttk.Button(btn_box, text="🔄 還原預設詞庫", command=restore).pack(side=tk.LEFT)
         ttk.Button(btn_box, text="💾 儲存並套用", command=save).pack(side=tk.RIGHT, padx=4)

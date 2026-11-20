@@ -1,6 +1,8 @@
 """
 Google 文件匯入與詞庫解析模組 (Vercel Serverless & Local 共用)
-支援從 Google Docs 公開連結或文字內容解析動詞與名詞詞庫。
+支援從兩份 Google Docs 公開連結分別解析：
+1. 動詞與名詞詞庫
+2. 完整句子詞庫 (格式為 "動詞"的"名詞")
 """
 
 import re
@@ -9,6 +11,7 @@ import urllib.error
 import ssl
 
 DEFAULT_GDOC_URL = "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"
+DEFAULT_SENTENCE_GDOC_URL = "https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing"
 
 DEFAULT_VERBS = [
     "奔跑", "跳躍", "飛翔", "思考", "凝視", "探索", "歌唱", "燃燒",
@@ -20,6 +23,21 @@ DEFAULT_NOUNS = [
     "貓咪", "夢想", "星星", "微風", "海浪", "時光", "宇宙", "火焰",
     "森林", "影子", "雨滴", "記憶", "旅人", "秘密", "指南針", "島嶼",
     "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
+]
+
+DEFAULT_SENTENCES = [
+    '"奔跑"的"貓咪"',
+    '"打字"的"工程師"',
+    '"燃燒"的"夢想"',
+    '"飛翔"的"羽翼"',
+    '"思考"的"哲學家"',
+    '"探索"的"旅人"',
+    '"綻放"的"玫瑰"',
+    '"流浪"的"吉他手"',
+    '"等待"的"信件"',
+    '"守護"的"城堡"',
+    '"穿梭"的"時光機"',
+    '"喚醒"的"記憶"'
 ]
 
 def extract_doc_id(url_or_id: str) -> str:
@@ -221,3 +239,73 @@ def parse_word_bank(content: str) -> tuple[list[str], list[str]]:
     nouns = list(dict.fromkeys(nouns))
     
     return verbs, nouns
+
+
+def format_sentence(line: str) -> str:
+    """將句子規範化為 \"動詞\"的\"名詞\" 格式"""
+    raw = re.sub(r'^(?:[\d]+[\.、\)]|[\-\*•\(\)（）])\s*', '', line.strip())
+    raw = raw.strip(' \t\n\r[]【】{}')
+    if not raw:
+        return ""
+
+    # 匹配 A的B、"A"的"B"、"A" 的 "B" 等形式
+    m = re.match(r'^["\'“”‘’]?(.*?)["\'“”‘’]?\s*的\s*["\'“”‘’]?(.*?)["\'“”‘’]?$', raw)
+    if m and m.group(1).strip() and m.group(2).strip():
+        v = m.group(1).strip().strip('"\'“”‘’')
+        n = m.group(2).strip().strip('"\'“”‘’')
+        if v and n:
+            return f'"{v}"的"{n}"'
+
+    # 雙欄格式 (動詞, 名詞) 或 (動詞\t名詞)
+    cols = [clean_word(c) for c in re.split(r'[\t|｜]+', raw) if clean_word(c)]
+    if len(cols) == 2:
+        return f'"{cols[0]}"的"{cols[1]}"'
+
+    return raw
+
+
+def parse_sentence_bank(content: str) -> list[str]:
+    """
+    從獨立的完整句子文件解析句子列表，並統一格式為 "動詞"的"名詞"。
+    支援每行一句、逗號/分號分隔、以及選填的 [句子] / [完整句子] 標題。
+    """
+    sentences = []
+    for line in content.splitlines():
+        line_clean = line.strip()
+        if not line_clean or line_clean.startswith('#'):
+            continue
+
+        # 略過純區塊標題或表格表頭
+        header_match = re.match(
+            r'^(?:#+\s*)?(?:\[|【)?(?:\s*(?:完整|現成)?句子\s*|Sentences?)(?:\]|】)?(?:\s*[:：])?(.*)$',
+            line_clean,
+            re.IGNORECASE
+        )
+        if header_match:
+            rest = header_match.group(1).strip()
+            if rest:
+                for item in re.split(r'[,，;；]+', rest):
+                    s = format_sentence(item)
+                    if s:
+                        sentences.append(s)
+            continue
+
+        cols_check = [c.strip() for c in re.split(r'[\t,|｜]+', line_clean) if c.strip()]
+        if (len(cols_check) == 2
+                and any('動詞' in c or 'verb' in c.lower() for c in cols_check)
+                and any('名詞' in c or 'noun' in c.lower() for c in cols_check)):
+            continue
+
+        # 若該行是 tab/pipe 雙欄 (動詞 | 名詞)，直接組成一句
+        if re.search(r'[\t|｜]', line_clean):
+            s = format_sentence(line_clean)
+            if s:
+                sentences.append(s)
+            continue
+
+        for item in re.split(r'[,，;；]+', line_clean):
+            s = format_sentence(item)
+            if s:
+                sentences.append(s)
+
+    return list(dict.fromkeys(sentences))

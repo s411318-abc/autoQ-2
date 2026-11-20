@@ -88,6 +88,7 @@
 
         .stat-badge.verbs { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
         .stat-badge.nouns { color: #059669; border-color: #a7f3d0; background: #ecfdf5; }
+        .stat-badge.sentences { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
         .stat-badge.total { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
 
         /* 分頁切換 */
@@ -395,6 +396,7 @@
         .result-badge.verb { background: #dbeafe; color: #1e40af; }
         .result-badge.noun { background: #d1fae5; color: #065f46; }
         .result-badge.sentence { background: #fef3c7; color: #92400e; }
+        .result-badge.complete-sentence { background: #ffedd5; color: #c2410c; }
 
         @keyframes popIn {
             0% { transform: scale(0.85); opacity: 0; }
@@ -416,6 +418,34 @@
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 24px;
+        }
+
+        .gdoc-box.sentence-box {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .gdoc-box.sentence-box h4 {
+            color: #9a3412;
+        }
+
+        .btn-warning {
+            background: #ea580c;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-warning:hover {
+            background: #c2410c;
         }
 
         .gdoc-box h4 {
@@ -610,10 +640,11 @@
         <!-- 頁首標題與統計 -->
         <header>
             <h1>🎯 動詞 & 名詞 智慧抽籤器</h1>
-            <p>混詞抽取 · "動詞"的"名詞" 句型生成 · 支援 Google 文件雲端匯入</p>
+            <p>混詞抽取 · 隨機組句 · 抽取完整句子（獨立 Google 文件同步）</p>
             <div class="stats-bar">
                 <span class="stat-badge verbs" id="badgeVerbs">動詞：載入中...</span>
                 <span class="stat-badge nouns" id="badgeNouns">名詞：載入中...</span>
+                <span class="stat-badge sentences" id="badgeSentences">完整句子：載入中...</span>
                 <span class="stat-badge total" id="badgeTotal">總庫存：載入中...</span>
             </div>
         </header>
@@ -645,6 +676,14 @@
                         <div class="mode-header">🔀 模式二：隨機組裝句子</div>
                         <div class="mode-desc">動詞庫與名詞庫各抽 1 個，組合出嶄新想像句型。</div>
                         <div class="mode-example">例："奔跑" 的 "貓咪"、"燃燒" 的 "夢想"</div>
+                    </div>
+
+                    <!-- 模式三 -->
+                    <div class="mode-option" id="optModeCompleteSentence" onclick="selectMode('complete_sentence')">
+                        <input type="radio" name="drawMode" value="complete_sentence">
+                        <div class="mode-header">📄 模式三：抽取完整句子</div>
+                        <div class="mode-desc">從獨立的完整句子 Google 文件直接抽取，格式為 "動詞"的"名詞"。</div>
+                        <div class="mode-example">例："打字"的"工程師"、"奔跑"的"貓咪"</div>
                     </div>
                 </div>
 
@@ -688,6 +727,14 @@
                             <option value='custom'>自訂句型格式...</option>
                         </select>
                         <input type="text" id="customTemplate" placeholder="例：想要{verb}的{noun}" style="display:none; width:180px;">
+                    </div>
+
+                    <!-- 模式三專屬設定 -->
+                    <div class="control-group" id="completeSentenceOptions" style="display: none;">
+                        <button type="button" class="btn-sm" onclick="importSentenceGoogleDoc()">📄 同步完整句子文件</button>
+                        <a href="https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing" target="_blank" style="font-size: 0.85rem; color: #c2410c; font-weight: 600; text-decoration: underline;">
+                            開啟句子文件編輯 ↗
+                        </a>
                     </div>
                 </div>
 
@@ -762,12 +809,42 @@
                 </div>
             </div>
 
+            <!-- 獨立完整句子 Google Docs 匯入卡片 -->
+            <div class="gdoc-box sentence-box">
+                <h4>📄 從另一份 Google 文件匯入完整句子（模式三："動詞"的"名詞"）</h4>
+                <p style="font-size: 0.88rem; color: #9a3412;">
+                    此模式資料獨立讀取自您的完整句子 Google 文件，系統會自動將每句規範為 <strong>"動詞"的"名詞"</strong> 格式。
+                </p>
+                <div class="input-row">
+                    <input type="text" id="gdocSentenceUrl" value="https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing" placeholder="請貼上完整句子 Google Docs 網址">
+                    <button class="btn-warning" id="btnImportSentenceGdoc" onclick="importSentenceGoogleDoc()">
+                        <span>📥</span> 立即匯入句子
+                    </button>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.85rem; color: #9a3412; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                    <span>✅ 預設已綁定完整句子專用 Google 文件</span>
+                    <a href="https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing" target="_blank" style="color: #c2410c; font-weight: 600; text-decoration: underline;">
+                        在新分頁開啟完整句子文件編輯 ↗
+                    </a>
+                </div>
+                <div class="guide-box">
+                    <strong>💡 完整句子文件格式範例（每行一句，可直接輸入或加上引號）：</strong>
+                    <div class="code-snippet">"打字"的"工程師"
+"奔跑"的"貓咪"
+燃燒的夢想</div>
+                    <span style="font-size: 0.8rem; color: #64748b;">
+                        * 無論是否加雙引號（例如 <code>奔跑的貓咪</code> 或 <code>"奔跑" 的 "貓咪"</code>），匯入後都會自動整理為 <code>"動詞"的"名詞"</code>。
+                    </span>
+                </div>
+            </div>
+
             <!-- 本地即時編輯詞庫 -->
             <div class="card">
                 <div class="card-title" style="justify-content: space-between;">
                     <span>✏️ 線上編輯當前詞庫</span>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-sm" onclick="importGoogleDoc(DEFAULT_GDOC_URL)">🌐 同步 Google 文件</button>
+                        <button class="btn-sm" onclick="importGoogleDoc(DEFAULT_GDOC_URL)">🌐 同步詞彙文件</button>
+                        <button class="btn-sm" onclick="importSentenceGoogleDoc(DEFAULT_SENTENCE_GDOC_URL)">📄 同步句子文件</button>
                         <label class="btn-sm" style="cursor: pointer; display: inline-flex; align-items: center;">
                             📂 匯入本機 TXT 檔案
                             <input type="file" id="fileInput" accept=".txt" style="display: none;" onchange="handleFileImport(event)">
@@ -776,7 +853,7 @@
                     </div>
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px;">
-                    每行輸入一個詞彙，修改完成後點擊下方「儲存並套用」即可立即生效並儲存於瀏覽器中。
+                    每行輸入一個詞彙或完整句子，修改完成後點擊下方「儲存並套用」即可立即生效並儲存於瀏覽器中。
                 </p>
 
                 <div class="editor-grid">
@@ -787,6 +864,10 @@
                     <div class="editor-col">
                         <label for="txtNouns" style="color: #059669;">📦 名詞列表 (<span id="cntNouns">0</span>)</label>
                         <textarea id="txtNouns" placeholder="一行一個名詞..."></textarea>
+                    </div>
+                    <div class="editor-col">
+                        <label for="txtSentences" style="color: #c2410c;">📄 完整句子列表 (<span id="cntSentences">0</span>)</label>
+                        <textarea id="txtSentences" placeholder="一行一句，例如：&#10;&quot;打字&quot;的&quot;工程師&quot;&#10;&quot;奔跑&quot;的&quot;貓咪&quot;..."></textarea>
                     </div>
                 </div>
 
@@ -832,12 +913,29 @@
             "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
         ];
 
+        const DEFAULT_SENTENCES = [
+            '"奔跑"的"貓咪"',
+            '"打字"的"工程師"',
+            '"燃燒"的"夢想"',
+            '"飛翔"的"羽翼"',
+            '"思考"的"哲學家"',
+            '"探索"的"旅人"',
+            '"綻放"的"玫瑰"',
+            '"流浪"的"吉他手"',
+            '"等待"的"信件"',
+            '"守護"的"城堡"',
+            '"穿梭"的"時光機"',
+            '"喚醒"的"記憶"'
+        ];
+
         // 狀態管理 (支援 Client-side 離線執行與 LocalStorage 持久化)
         let verbs = [];
         let nouns = [];
+        let sentences = [];
         let remainingMixed = [];
         let remainingVerbs = [];
         let remainingNouns = [];
+        let remainingSentences = [];
         let historyRecords = [];
         let currentMode = 'mixed';
         let latestResults = [];
@@ -845,14 +943,18 @@
         // 初始化
         window.addEventListener('DOMContentLoaded', () => {
             const isFirstVisit = !localStorage.getItem('draw_verbs');
+            const isFirstSentenceVisit = !localStorage.getItem('draw_sentences');
             loadSavedData();
             initRemainingPools();
             updateUIStats();
             renderHistory();
 
-            // 若初次造訪，自動嘗試同步預設 Google 文件詞庫
+            // 若初次造訪，自動嘗試同步預設 Google 文件詞庫與完整句子文件
             if (isFirstVisit) {
                 importGoogleDoc(DEFAULT_GDOC_URL).catch(() => {});
+            }
+            if (isFirstSentenceVisit) {
+                importSentenceGoogleDoc(DEFAULT_SENTENCE_GDOC_URL, true).catch(() => {});
             }
 
             document.getElementById('drawCount').addEventListener('change', (e) => {
@@ -865,10 +967,12 @@
         function loadSavedData() {
             const savedVerbs = localStorage.getItem('draw_verbs');
             const savedNouns = localStorage.getItem('draw_nouns');
+            const savedSentences = localStorage.getItem('draw_sentences');
             const savedHistory = localStorage.getItem('draw_history');
 
             verbs = savedVerbs ? JSON.parse(savedVerbs) : [...DEFAULT_VERBS];
             nouns = savedNouns ? JSON.parse(savedNouns) : [...DEFAULT_NOUNS];
+            sentences = savedSentences ? JSON.parse(savedSentences) : [...DEFAULT_SENTENCES];
             historyRecords = savedHistory ? JSON.parse(savedHistory) : [];
         }
 
@@ -876,6 +980,7 @@
         function persistData() {
             localStorage.setItem('draw_verbs', JSON.stringify(verbs));
             localStorage.setItem('draw_nouns', JSON.stringify(nouns));
+            localStorage.setItem('draw_sentences', JSON.stringify(sentences));
             localStorage.setItem('draw_history', JSON.stringify(historyRecords));
         }
 
@@ -883,6 +988,7 @@
         function initRemainingPools() {
             remainingVerbs = shuffle([...verbs]);
             remainingNouns = shuffle([...nouns]);
+            remainingSentences = shuffle([...sentences]);
             
             const mixed = [];
             verbs.forEach(v => mixed.push({ word: v, type: '動詞' }));
@@ -903,13 +1009,16 @@
         function updateUIStats() {
             document.getElementById('badgeVerbs').textContent = `動詞：${verbs.length} 個`;
             document.getElementById('badgeNouns').textContent = `名詞：${nouns.length} 個`;
-            document.getElementById('badgeTotal').textContent = `總庫存：${verbs.length + nouns.length} 個`;
+            document.getElementById('badgeSentences').textContent = `完整句子：${sentences.length} 句`;
+            document.getElementById('badgeTotal').textContent = `總庫存：${verbs.length + nouns.length + sentences.length} 項`;
 
             document.getElementById('cntVerbs').textContent = verbs.length;
             document.getElementById('cntNouns').textContent = nouns.length;
+            document.getElementById('cntSentences').textContent = sentences.length;
 
             document.getElementById('txtVerbs').value = verbs.join('\n');
             document.getElementById('txtNouns').value = nouns.join('\n');
+            document.getElementById('txtSentences').value = sentences.join('\n');
         }
 
         // 分頁切換
@@ -932,11 +1041,13 @@
             currentMode = mode;
             document.getElementById('optModeMixed').classList.toggle('selected', mode === 'mixed');
             document.getElementById('optModeSentence').classList.toggle('selected', mode === 'sentence');
+            document.getElementById('optModeCompleteSentence').classList.toggle('selected', mode === 'complete_sentence');
 
             document.querySelector(`input[name="drawMode"][value="${mode}"]`).checked = true;
 
             document.getElementById('mixedOptions').style.display = mode === 'mixed' ? 'flex' : 'none';
             document.getElementById('sentenceOptions').style.display = mode === 'sentence' ? 'flex' : 'none';
+            document.getElementById('completeSentenceOptions').style.display = mode === 'complete_sentence' ? 'flex' : 'none';
         }
 
         function handleTemplateChange() {
@@ -1039,6 +1150,31 @@
                         results.push({ text: sentence, verb: v, noun: n, type: '句型' });
                     }
                 }
+            } else if (currentMode === 'complete_sentence') {
+                // 模式三：從獨立句子文件抽取完整句子 ("動詞"的"名詞")
+                if (sentences.length === 0) {
+                    showToast('完整句子庫為空！請先從「完整句子 Google 文件」匯入或手動新增。', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (!noRepeat) {
+                    for (let i = 0; i < count; i++) {
+                        const s = sentences[Math.floor(Math.random() * sentences.length)];
+                        results.push({ text: s, type: '完整句子' });
+                    }
+                } else {
+                    if (remainingSentences.length < count) {
+                        notice = `完整句子剩餘不足 ${count} 句，已全部抽出並自動循環重設！`;
+                    }
+                    for (let i = 0; i < count; i++) {
+                        if (remainingSentences.length === 0) {
+                            remainingSentences = shuffle([...sentences]);
+                        }
+                        const s = remainingSentences.pop();
+                        results.push({ text: s, type: '完整句子' });
+                    }
+                }
             }
 
             latestResults = results.map(r => r.text);
@@ -1050,6 +1186,7 @@
             const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
             let modeLabel = '混在一起抽';
             if (currentMode === 'sentence') modeLabel = '隨機組裝句子';
+            if (currentMode === 'complete_sentence') modeLabel = '抽取完整句子';
 
             historyRecords.unshift({
                 timestamp: timeStr,
@@ -1078,6 +1215,8 @@
                 if (currentMode === 'mixed') {
                     const isVerb = item.type === '動詞';
                     badgeHtml = `<span class="result-badge ${isVerb ? 'verb' : 'noun'}">${item.type}</span>`;
+                } else if (currentMode === 'complete_sentence') {
+                    badgeHtml = `<span class="result-badge complete-sentence">完整句子</span>`;
                 } else {
                     badgeHtml = `<span class="result-badge sentence">句型組合</span>`;
                 }
@@ -1206,11 +1345,76 @@
             };
         }
 
+        function formatSentenceClient(raw) {
+            let s = raw.replace(/^(?:[\d]+[\.、\)]|[\-\*•\(\)（）])\s*/, '').trim().replace(/^[\[\]【】\{\}\s]+|[\[\]【】\{\}\s]+$/g, '');
+            if (!s) return '';
+            const m = s.match(/^["'“”‘’]?(.*?)["'“”‘’]?\s*的\s*["'“”‘’]?(.*?)["'“”‘’]?$/);
+            if (m && m[1].trim() && m[2].trim()) {
+                const v = m[1].trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
+                const n = m[2].trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
+                if (v && n) return `"${v}"的"${n}"`;
+            }
+            const cols = s.split(/[\t|｜]+/).map(cleanWordClient).filter(Boolean);
+            if (cols.length === 2) {
+                return `"${cols[0]}"的"${cols[1]}"`;
+            }
+            return s;
+        }
+
         function cleanWordClient(w) {
             return w.replace(/^[\d\.\-\*•、\(\)（）\s]+/, '').replace(/^["'“”‘’\[\]【】\(\)\{\}\s]+|["'“”‘’\[\]【】\(\)\{\}\s]+$/g, '').trim();
         }
 
         const DEFAULT_GDOC_URL = "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0";
+        const DEFAULT_SENTENCE_GDOC_URL = "https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing";
+
+        // 從另一份 Google 文件匯入完整句子
+        async function importSentenceGoogleDoc(overrideUrl, silent = false) {
+            const urlInput = document.getElementById('gdocSentenceUrl');
+            if (overrideUrl) {
+                urlInput.value = overrideUrl;
+            }
+            const url = urlInput.value.trim() || DEFAULT_SENTENCE_GDOC_URL;
+            if (!url) {
+                if (!silent) showToast('請先輸入完整句子 Google Docs 網址或 ID！', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnImportSentenceGdoc');
+            if (btn && !silent) {
+                btn.disabled = true;
+                btn.innerHTML = '<span>⏳</span> 正在下載解析...';
+            }
+
+            try {
+                const res = await fetch('/api/import-sentences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url, type: 'sentences' })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || data.error) {
+                    throw new Error(data.error || '無法匯入完整句子 Google 文件');
+                }
+
+                sentences = data.sentences || [];
+                persistData();
+                initRemainingPools();
+                updateUIStats();
+                if (!silent) {
+                    showToast(`成功匯入完整句子！共 ${sentences.length} 句`, 'success');
+                }
+            } catch (err) {
+                if (!silent) showToast(err.message, 'error');
+            } finally {
+                if (btn && !silent) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>📥</span> 立即匯入句子';
+                }
+            }
+        }
 
         // 從 Google 文件匯入
         async function importGoogleDoc(overrideUrl) {
@@ -1286,21 +1490,24 @@
         function saveWordBank() {
             const vText = document.getElementById('txtVerbs').value;
             const nText = document.getElementById('txtNouns').value;
+            const sText = document.getElementById('txtSentences').value;
 
             const newV = vText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
             const newN = nText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
+            const newS = sText.split(/\r?\n/).map(formatSentenceClient).filter(Boolean);
 
-            if (newV.length === 0 && newN.length === 0) {
-                showToast('動詞與名詞不能同時為空！', 'error');
+            if (newV.length === 0 && newN.length === 0 && newS.length === 0) {
+                showToast('動詞、名詞與完整句子不能同時為空！', 'error');
                 return;
             }
 
             verbs = [...new Set(newV)];
             nouns = [...new Set(newN)];
+            sentences = [...new Set(newS)];
             persistData();
             initRemainingPools();
             updateUIStats();
-            showToast(`詞庫更新成功！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個`, 'success');
+            showToast(`詞庫更新成功！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個，完整句子 ${sentences.length} 句`, 'success');
         }
 
         // 還原預設詞庫
@@ -1308,6 +1515,7 @@
             if (!confirm('確定要還原為系統預設的示範詞庫嗎？現有自訂內容將被覆蓋。')) return;
             verbs = [...DEFAULT_VERBS];
             nouns = [...DEFAULT_NOUNS];
+            sentences = [...DEFAULT_SENTENCES];
             persistData();
             initRemainingPools();
             updateUIStats();

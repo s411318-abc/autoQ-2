@@ -26,13 +26,15 @@ npx vercel
 
 ## ✨ 功能特色
 
-### 1. 兩種抽籤模式
+### 1. 三種抽籤模式
 * **🎲 模式一：混在一起抽**
   * 將詞庫中的「動詞」與「名詞」全部放在同一個池子中隨機抽取。
   * 可自由勾選是否顯示詞性標籤（如：`奔跑（動詞）`、`貓咪（名詞）`）。
 * **🔀 模式二：隨機組裝句子**
   * 每次各抽取一個動詞與一個名詞，結合成完整的想像語句。
   * 支援多種預設格式：帶雙引號 `"{verb}" 的 "{noun}"`、緊湊句型、自訂句型等。
+* **📄 模式三：抽取完整句子 (`"動詞"的"名詞"`)**
+  * 從**獨立的完整句子 Google 文件**讀取並隨機抽取完整句子，自動規範為 `"動詞"的"名詞"` 格式。
 
 ### 2. 多元詞庫匯入與管理
 * **🌐 Google 文件雲端匯入**：
@@ -91,8 +93,9 @@ python gui.py
 3. 複製連結並貼入抽籤系統的匯入框中，點選**「立即匯入」**！
 
 > 🔗 **專案預設綁定之 Google 文件**：  
-> [https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0](https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0)  
-> 系統已將此文件設為預設詞庫來源，於該文件內新增或修改詞彙後，在系統點選「立即匯入」或「同步 Google 文件」即可即時更新！
+> * **動詞 & 名詞詞庫文件**：[https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0](https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0)  
+> * **完整句子獨立文件（模式三）**：[https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing](https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing)  
+> 於任一文件內新增或修改內容後，在系統點選對應的「立即匯入」或同步按鈕即可即時更新！
 
 ---
 

@@ -62,9 +62,12 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
             data = {
                 "status": "online",
                 "default_gdoc_url": getattr(importer, "DEFAULT_GDOC_URL", "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"),
+                "default_sentence_gdoc_url": getattr(importer, "DEFAULT_SENTENCE_GDOC_URL", "https://docs.google.com/document/d/1LTPxdxBeY0UKi9x169Lu687p_mOPIpMm3xW4qq6PNbM/edit?usp=sharing"),
                 "default_verbs": importer.DEFAULT_VERBS,
                 "default_nouns": importer.DEFAULT_NOUNS,
+                "default_sentences": getattr(importer, "DEFAULT_SENTENCES", []),
                 "total_default_words": len(importer.DEFAULT_VERBS) + len(importer.DEFAULT_NOUNS),
+                "total_default_sentences": len(getattr(importer, "DEFAULT_SENTENCES", [])),
                 "message": "動詞與名詞智慧抽籤器 API 運作中"
             }
             self._send_json(data)
@@ -82,6 +85,44 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
             req_data = json.loads(body.decode("utf-8")) if body else {}
         except json.JSONDecodeError:
             req_data = {}
+
+        # 解析完整句子純文字
+        if ("parse-sentences" in path or (req_data.get("type") == "sentences" and "text" in req_data)):
+            text = req_data.get("text", "")
+            sentences = importer.parse_sentence_bank(text)
+            self._send_json({
+                "success": True,
+                "sentences": sentences,
+                "sentences_count": len(sentences)
+            })
+            return
+
+        # 從獨立的 Google 文件匯入完整句子
+        if ("import-sentences" in path or "sentences" in path
+                or req_data.get("type") == "sentences" or "sentence_url" in req_data):
+            url = (req_data.get("url") or req_data.get("sentence_url") or "").strip() or getattr(importer, "DEFAULT_SENTENCE_GDOC_URL", "")
+            if not url:
+                self._send_json({"error": "請提供有效的完整句子 Google 文件網址或 ID！"}, status=400)
+                return
+
+            try:
+                content = importer.fetch_google_doc_text(url)
+                sentences = importer.parse_sentence_bank(content)
+
+                if not sentences:
+                    self._send_json({
+                        "error": "從完整句子文件中未解析出任何句子！\n請確認文件內已填入句子（每行一句，例如：\"奔跑\"的\"貓咪\" 或 奔跑的貓咪）。"
+                    }, status=400)
+                    return
+
+                self._send_json({
+                    "success": True,
+                    "sentences": sentences,
+                    "sentences_count": len(sentences)
+                })
+            except Exception as e:
+                self._send_json({"error": str(e)}, status=400)
+            return
 
         if "text" in req_data or "parse-text" in path:
             text = req_data.get("text", "")
