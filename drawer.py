@@ -1,9 +1,8 @@
 """
 詞彙抽取核心模組 (Word Drawer Engine)
-支援三種模式：
+支援兩種模式：
 1. 混在一起抽 (混合動詞與名詞隨機抽取)
 2. 隨機組合成句 ("動詞" 的 "名詞" 自由搭配)
-3. 抽取現成句子 (直接抽取詞庫內固定的 "動詞"的"名詞" 現成句子)
 支援放回/不放回抽取模式、歷史紀錄與統計。
 """
 
@@ -12,34 +11,28 @@ from datetime import datetime
 import importer
 
 class WordDrawer:
-    def __init__(self, verbs=None, nouns=None, sentences=None):
+    def __init__(self, verbs=None, nouns=None):
         self.verbs = list(dict.fromkeys(verbs or []))
         self.nouns = list(dict.fromkeys(nouns or []))
-        self.sentences = list(dict.fromkeys(sentences or []))
         
         # 不放回抽籤時使用的剩餘詞庫
         self.remaining_mixed = []
         self.remaining_verbs = []
         self.remaining_nouns = []
-        self.remaining_sentences = []
         
         self.history = []
         self.reset_pools()
 
-    def set_word_bank(self, verbs: list[str], nouns: list[str], sentences: list[str] = None):
-        """更新動詞、名詞與現成句子詞庫"""
+    def set_word_bank(self, verbs: list[str], nouns: list[str]):
+        """更新動詞與名詞詞庫"""
         self.verbs = list(dict.fromkeys([v.strip() for v in verbs if v.strip()]))
         self.nouns = list(dict.fromkeys([n.strip() for n in nouns if n.strip()]))
-        if sentences is not None:
-            self.sentences = list(dict.fromkeys([s.strip() for s in sentences if s.strip()]))
         self.reset_pools()
 
     def reset_pools(self):
         """重設不放回抽取的剩餘詞庫池"""
         self.remaining_verbs = list(self.verbs)
         self.remaining_nouns = list(self.nouns)
-        self.remaining_sentences = list(self.sentences)
-        random.shuffle(self.remaining_sentences)
         
         mixed = [(v, '動詞') for v in self.verbs] + [(n, '名詞') for n in self.nouns]
         random.shuffle(mixed)
@@ -50,11 +43,9 @@ class WordDrawer:
         return {
             "total_verbs": len(self.verbs),
             "total_nouns": len(self.nouns),
-            "total_sentences": len(self.sentences),
             "total_words": len(self.verbs) + len(self.nouns),
             "remaining_verbs": len(self.remaining_verbs),
             "remaining_nouns": len(self.remaining_nouns),
-            "remaining_sentences": len(self.remaining_sentences),
             "remaining_mixed": len(self.remaining_mixed),
         }
 
@@ -192,70 +183,6 @@ class WordDrawer:
 
         return {
             "mode": "sentence",
-            "results": results,
-            "formatted": [r["text"] for r in results],
-            "message": message,
-            "stats": self.get_stats()
-        }
-
-    def draw_existing_sentence(self, count: int = 1, allow_repeat: bool = True) -> dict:
-        """
-        模式三：抽取詞庫裡現成的句子 (格式為 "動詞"的"名詞")
-        :param count: 抽取句數
-        :param allow_repeat: 是否允許重複抽取
-        :return: 抽籤結果
-        """
-        if not self.sentences:
-            return {
-                "error": "目前詞庫中尚無「現成句子」！\n請至詞庫管理區塊或 Google 文件加入 [句子] 列表。",
-                "results": []
-            }
-
-        count = max(1, count)
-        results = []
-        message = ""
-
-        if allow_repeat:
-            chosen = random.choices(self.sentences, k=count)
-            for s in chosen:
-                results.append({"text": s, "type": "現成句子"})
-        else:
-            chosen = []
-            if len(self.remaining_sentences) < count:
-                message = f"現成句子剩餘不足 {count} 句（剩餘 {len(self.remaining_sentences)} 句），已全部抽出並自動重設！"
-                needed = count - len(self.remaining_sentences)
-                chosen.extend(self.remaining_sentences)
-                self.remaining_sentences = list(self.sentences)
-                random.shuffle(self.remaining_sentences)
-                
-                while needed > 0:
-                    take = min(needed, len(self.remaining_sentences))
-                    chosen.extend(self.remaining_sentences[:take])
-                    self.remaining_sentences = self.remaining_sentences[take:]
-                    needed -= take
-                    if needed > 0:
-                        self.remaining_sentences = list(self.sentences)
-                        random.shuffle(self.remaining_sentences)
-            else:
-                for _ in range(count):
-                    chosen.append(self.remaining_sentences.pop())
-
-            for s in chosen:
-                results.append({"text": s, "type": "現成句子"})
-
-        entry = {
-            "id": len(self.history) + 1,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "mode": "現成句子抽取",
-            "count": count,
-            "results": [r["text"] for r in results],
-            "raw": results,
-            "message": message
-        }
-        self.history.append(entry)
-
-        return {
-            "mode": "existing_sentence",
             "results": results,
             "formatted": [r["text"] for r in results],
             "message": message,

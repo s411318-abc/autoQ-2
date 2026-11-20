@@ -64,9 +64,7 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                 "default_gdoc_url": getattr(importer, "DEFAULT_GDOC_URL", "https://docs.google.com/document/d/166VTPgMpxjcHDP52zTFJGpnnewSKVIQAelxabE0jsH0/edit?tab=t.0"),
                 "default_verbs": importer.DEFAULT_VERBS,
                 "default_nouns": importer.DEFAULT_NOUNS,
-                "default_sentences": getattr(importer, "DEFAULT_SENTENCES", []),
                 "total_default_words": len(importer.DEFAULT_VERBS) + len(importer.DEFAULT_NOUNS),
-                "total_default_sentences": len(getattr(importer, "DEFAULT_SENTENCES", [])),
                 "message": "動詞與名詞智慧抽籤器 API 運作中"
             }
             self._send_json(data)
@@ -87,15 +85,13 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
 
         if "text" in req_data or "parse-text" in path:
             text = req_data.get("text", "")
-            verbs, nouns, sentences = importer.parse_word_bank(text)
+            verbs, nouns = importer.parse_word_bank(text)
             self._send_json({
                 "success": True,
                 "verbs": verbs,
                 "nouns": nouns,
-                "sentences": sentences,
                 "verbs_count": len(verbs),
-                "nouns_count": len(nouns),
-                "sentences_count": len(sentences)
+                "nouns_count": len(nouns)
             })
             return
 
@@ -107,11 +103,11 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
 
             try:
                 content = importer.fetch_google_doc_text(url)
-                verbs, nouns, sentences = importer.parse_word_bank(content)
+                verbs, nouns = importer.parse_word_bank(content)
 
-                if not verbs and not nouns and not sentences:
+                if not verbs and not nouns:
                     self._send_json({
-                        "error": "從文件中未解析出任何動詞、名詞或句子！\n請確認文件是否有標註 [動詞]、[名詞] 或 [句子] 區塊。"
+                        "error": "從文件中未解析出任何動詞或名詞！\n請確認文件是否有標註 [動詞] 與 [名詞] 區塊。"
                     }, status=400)
                     return
 
@@ -119,10 +115,8 @@ class LocalRequestHandler(BaseHTTPRequestHandler):
                     "success": True,
                     "verbs": verbs,
                     "nouns": nouns,
-                    "sentences": sentences,
                     "verbs_count": len(verbs),
-                    "nouns_count": len(nouns),
-                    "sentences_count": len(sentences)
+                    "nouns_count": len(nouns)
                 })
             except Exception as e:
                 self._send_json({"error": str(e)}, status=400)
