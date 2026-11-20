@@ -395,7 +395,6 @@
         .result-badge.verb { background: #dbeafe; color: #1e40af; }
         .result-badge.noun { background: #d1fae5; color: #065f46; }
         .result-badge.sentence { background: #fef3c7; color: #92400e; }
-        .result-badge.existing { background: #ffedd5; color: #c2410c; }
 
         @keyframes popIn {
             0% { transform: scale(0.85); opacity: 0; }
@@ -615,7 +614,6 @@
             <div class="stats-bar">
                 <span class="stat-badge verbs" id="badgeVerbs">動詞：載入中...</span>
                 <span class="stat-badge nouns" id="badgeNouns">名詞：載入中...</span>
-                <span class="stat-badge" id="badgeSentences" style="color: #ea580c; border-color: #fed7aa; background: #fff7ed;">現成句子：載入中...</span>
                 <span class="stat-badge total" id="badgeTotal">總庫存：載入中...</span>
             </div>
         </header>
@@ -647,14 +645,6 @@
                         <div class="mode-header">🔀 模式二：隨機組裝句子</div>
                         <div class="mode-desc">動詞庫與名詞庫各抽 1 個，組合出嶄新想像句型。</div>
                         <div class="mode-example">例："奔跑" 的 "貓咪"、"燃燒" 的 "夢想"</div>
-                    </div>
-
-                    <!-- 模式三 -->
-                    <div class="mode-option" id="optModeExisting" onclick="selectMode('existing')">
-                        <input type="radio" name="drawMode" value="existing">
-                        <div class="mode-header">📖 模式三：抽取現成句子</div>
-                        <div class="mode-desc">直接從詞庫中抽取預存的現成句子，原汁原味！</div>
-                        <div class="mode-example">例："打字"的"工程師"、"奔跑"的"貓咪"</div>
                     </div>
                 </div>
 
@@ -765,14 +755,9 @@
 [名詞]
 工程師
 貓咪
-夢想
-
-[句子]
-"打字"的"工程師"
-"奔跑"的"貓咪"
-"燃燒"的"熱情"</div>
+夢想</div>
                     <span style="font-size: 0.8rem; color: #64748b;">
-                        * 系統亦支援：逗號/頓號分隔、項目清單、雙欄表格等。若在 [句子] 下輸入，會自動規範為 "動詞"的"名詞" 格式！
+                        * 系統亦支援：逗號/頓號分隔、項目清單、雙欄表格等格式。
                     </span>
                 </div>
             </div>
@@ -791,7 +776,7 @@
                     </div>
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px;">
-                    每行輸入一個詞彙或句子，修改完成後點擊下方「儲存並套用」即可立即生效並儲存於瀏覽器中。
+                    每行輸入一個詞彙，修改完成後點擊下方「儲存並套用」即可立即生效並儲存於瀏覽器中。
                 </p>
 
                 <div class="editor-grid">
@@ -802,10 +787,6 @@
                     <div class="editor-col">
                         <label for="txtNouns" style="color: #059669;">📦 名詞列表 (<span id="cntNouns">0</span>)</label>
                         <textarea id="txtNouns" placeholder="一行一個名詞..."></textarea>
-                    </div>
-                    <div class="editor-col">
-                        <label for="txtSentences" style="color: #ea580c;">📖 現成句子 (<span id="cntSentences">0</span>)</label>
-                        <textarea id="txtSentences" placeholder="一行一句現成句子，例如：&#10;&quot;打字&quot;的&quot;工程師&quot;&#10;&quot;奔跑&quot;的&quot;貓咪&quot;..."></textarea>
                     </div>
                 </div>
 
@@ -851,29 +832,12 @@
             "咖啡", "夕陽", "花瓣", "地圖", "音符", "羽毛", "微笑", "燈塔"
         ];
 
-        const DEFAULT_SENTENCES = [
-            '"奔跑"的"貓咪"',
-            '"打字"的"工程師"',
-            '"燃燒"的"夢想"',
-            '"飛翔"的"羽翼"',
-            '"思考"的"哲學家"',
-            '"探索"的"旅人"',
-            '"綻放"的"玫瑰"',
-            '"流浪"的"吉他手"',
-            '"等待"的"信件"',
-            '"守護"的"城堡"',
-            '"穿梭"的"時光機"',
-            '"喚醒"的"記憶"'
-        ];
-
         // 狀態管理 (支援 Client-side 離線執行與 LocalStorage 持久化)
         let verbs = [];
         let nouns = [];
-        let sentences = [];
         let remainingMixed = [];
         let remainingVerbs = [];
         let remainingNouns = [];
-        let remainingSentences = [];
         let historyRecords = [];
         let currentMode = 'mixed';
         let latestResults = [];
@@ -901,12 +865,10 @@
         function loadSavedData() {
             const savedVerbs = localStorage.getItem('draw_verbs');
             const savedNouns = localStorage.getItem('draw_nouns');
-            const savedSentences = localStorage.getItem('draw_sentences');
             const savedHistory = localStorage.getItem('draw_history');
 
             verbs = savedVerbs ? JSON.parse(savedVerbs) : [...DEFAULT_VERBS];
             nouns = savedNouns ? JSON.parse(savedNouns) : [...DEFAULT_NOUNS];
-            sentences = savedSentences ? JSON.parse(savedSentences) : [...DEFAULT_SENTENCES];
             historyRecords = savedHistory ? JSON.parse(savedHistory) : [];
         }
 
@@ -914,7 +876,6 @@
         function persistData() {
             localStorage.setItem('draw_verbs', JSON.stringify(verbs));
             localStorage.setItem('draw_nouns', JSON.stringify(nouns));
-            localStorage.setItem('draw_sentences', JSON.stringify(sentences));
             localStorage.setItem('draw_history', JSON.stringify(historyRecords));
         }
 
@@ -922,7 +883,6 @@
         function initRemainingPools() {
             remainingVerbs = shuffle([...verbs]);
             remainingNouns = shuffle([...nouns]);
-            remainingSentences = shuffle([...sentences]);
             
             const mixed = [];
             verbs.forEach(v => mixed.push({ word: v, type: '動詞' }));
@@ -943,16 +903,13 @@
         function updateUIStats() {
             document.getElementById('badgeVerbs').textContent = `動詞：${verbs.length} 個`;
             document.getElementById('badgeNouns').textContent = `名詞：${nouns.length} 個`;
-            document.getElementById('badgeSentences').textContent = `現成句子：${sentences.length} 句`;
-            document.getElementById('badgeTotal').textContent = `總庫存：${verbs.length + nouns.length + sentences.length} 項`;
+            document.getElementById('badgeTotal').textContent = `總庫存：${verbs.length + nouns.length} 個`;
 
             document.getElementById('cntVerbs').textContent = verbs.length;
             document.getElementById('cntNouns').textContent = nouns.length;
-            document.getElementById('cntSentences').textContent = sentences.length;
 
             document.getElementById('txtVerbs').value = verbs.join('\n');
             document.getElementById('txtNouns').value = nouns.join('\n');
-            document.getElementById('txtSentences').value = sentences.join('\n');
         }
 
         // 分頁切換
@@ -975,7 +932,6 @@
             currentMode = mode;
             document.getElementById('optModeMixed').classList.toggle('selected', mode === 'mixed');
             document.getElementById('optModeSentence').classList.toggle('selected', mode === 'sentence');
-            document.getElementById('optModeExisting').classList.toggle('selected', mode === 'existing');
 
             document.querySelector(`input[name="drawMode"][value="${mode}"]`).checked = true;
 
@@ -1083,31 +1039,6 @@
                         results.push({ text: sentence, verb: v, noun: n, type: '句型' });
                     }
                 }
-            } else if (currentMode === 'existing') {
-                // 模式三：抽取現成句子
-                if (sentences.length === 0) {
-                    showToast('現成句子庫為空！請至「詞庫管理」或 Google 文件中加入 [句子] 列表。', 'error');
-                    btn.disabled = false;
-                    return;
-                }
-
-                if (!noRepeat) {
-                    for (let i = 0; i < count; i++) {
-                        const s = sentences[Math.floor(Math.random() * sentences.length)];
-                        results.push({ text: s, type: '現成句子' });
-                    }
-                } else {
-                    if (remainingSentences.length < count) {
-                        notice = `現成句子剩餘不足 ${count} 句，已全部抽出並自動循環重設！`;
-                    }
-                    for (let i = 0; i < count; i++) {
-                        if (remainingSentences.length === 0) {
-                            remainingSentences = shuffle([...sentences]);
-                        }
-                        const s = remainingSentences.pop();
-                        results.push({ text: s, type: '現成句子' });
-                    }
-                }
             }
 
             latestResults = results.map(r => r.text);
@@ -1119,7 +1050,6 @@
             const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
             let modeLabel = '混在一起抽';
             if (currentMode === 'sentence') modeLabel = '隨機組裝句子';
-            if (currentMode === 'existing') modeLabel = '現成句子抽取';
 
             historyRecords.unshift({
                 timestamp: timeStr,
@@ -1148,19 +1078,9 @@
                 if (currentMode === 'mixed') {
                     const isVerb = item.type === '動詞';
                     badgeHtml = `<span class="result-badge ${isVerb ? 'verb' : 'noun'}">${item.type}</span>`;
-                } else if (currentMode === 'existing') {
-                    badgeHtml = `<span class="result-badge existing">現成句子</span>`;
                 } else {
                     badgeHtml = `<span class="result-badge sentence">句型組合</span>`;
                 }
-
-                card.innerHTML = `
-                    ${badgeHtml}
-                    <div class="result-text">${item.text}</div>
-                `;
-                grid.appendChild(card);
-            });
-        }
 
                 card.innerHTML = `
                     ${badgeHtml}
@@ -1189,29 +1109,17 @@
             showToast('已重設不重複抽籤池！', 'success');
         }
 
-        function formatSentenceClient(raw) {
-            let s = raw.replace(/^[\d\.\-\*•、\(\)（）\s]+/, '').trim().replace(/^[\[\]【】\{\}\s]+|[\[\]【】\{\}\s]+$/g, '');
-            const m = s.match(/^"?(.*?)"?\s*的\s*"?(.*?)"?$/);
-            if (m && m[1].trim() && m[2].trim()) {
-                const v = m[1].trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
-                const n = m[2].trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
-                return `"${v}"的"${n}"`;
-            }
-            return s;
-        }
-
-        // 智慧解析純文字中的動詞、名詞與現成句子
+        // 智慧解析純文字中的動詞與名詞
         function parseWordBankClient(text) {
             let extractedVerbs = [];
             let extractedNouns = [];
-            let extractedSentences = [];
             let currentSection = null;
 
             const lines = text.split(/\r?\n/);
             
-            // 檢查雙欄/多欄表頭
+            // 檢查雙欄表頭
             let isTable = false;
-            let vCol = -1, nCol = -1, sCol = -1;
+            let vCol = -1, nCol = -1;
             for (let i = 0; i < Math.min(10, lines.length); i++) {
                 const cols = lines[i].split(/[\t,|｜]+/).map(s => s.trim()).filter(Boolean);
                 const hasV = cols.some(c => c.includes('動詞') || c.toLowerCase().includes('verb'));
@@ -1221,7 +1129,6 @@
                     cols.forEach((c, idx) => {
                         if (c.includes('動詞') || c.toLowerCase().includes('verb')) vCol = idx;
                         if (c.includes('名詞') || c.toLowerCase().includes('noun')) nCol = idx;
-                        if (c.includes('句') || c.toLowerCase().includes('sentence')) sCol = idx;
                     });
                     lines.splice(0, i + 1);
                     break;
@@ -1234,12 +1141,10 @@
                     const cols = l.split(/[\t,|｜]+/);
                     if (cols.length > vCol && cols[vCol] && !cols[vCol].includes('動詞')) extractedVerbs.push(cleanWordClient(cols[vCol]));
                     if (cols.length > nCol && cols[nCol] && !cols[nCol].includes('名詞')) extractedNouns.push(cleanWordClient(cols[nCol]));
-                    if (sCol !== -1 && cols.length > sCol && cols[sCol] && !cols[sCol].includes('句')) extractedSentences.push(formatSentenceClient(cols[sCol]));
                 });
                 return {
                     verbs: [...new Set(extractedVerbs.filter(Boolean))],
-                    nouns: [...new Set(extractedNouns.filter(Boolean))],
-                    sentences: [...new Set(extractedSentences.filter(Boolean))]
+                    nouns: [...new Set(extractedNouns.filter(Boolean))]
                 };
             }
 
@@ -1250,7 +1155,6 @@
 
                 const vMatch = l.match(/^(?:#+\s*)?(?:\[|【)?(?:\s*動詞\s*|Verbs?)(?:\]|】)?(?:\s*[:：])?(.*)$/i);
                 const nMatch = l.match(/^(?:#+\s*)?(?:\[|【)?(?:\s*名詞\s*|Nouns?)(?:\]|】)?(?:\s*[:：])?(.*)$/i);
-                const sMatch = l.match(/^(?:#+\s*)?(?:\[|【)?(?:\s*(?:現成)?句子\s*|Sentences?)(?:\]|】)?(?:\s*[:：])?(.*)$/i);
 
                 if (vMatch) {
                     currentSection = 'verb';
@@ -1274,14 +1178,8 @@
                     return;
                 }
 
-                if (sMatch) {
-                    currentSection = 'sentence';
-                    if (sMatch[1].trim()) {
-                        sMatch[1].split(/[,，;；\t]+/).forEach(w => {
-                            const s = formatSentenceClient(w);
-                            if (s) extractedSentences.push(s);
-                        });
-                    }
+                if (/^(?:\[|【)[^\]】]+(?:\]|】)\s*$/.test(l)) {
+                    currentSection = null;
                     return;
                 }
 
@@ -1299,23 +1197,12 @@
                             if (c) extractedNouns.push(c);
                         });
                     });
-                } else if (currentSection === 'sentence') {
-                    l.split(/[,，;；\t]+/).forEach(w => {
-                        const s = formatSentenceClient(w);
-                        if (s) extractedSentences.push(s);
-                    });
-                } else {
-                    if (l.match(/"[^"]+"\s*的\s*"[^"]+"/)) {
-                        const s = formatSentenceClient(l);
-                        if (s) extractedSentences.push(s);
-                    }
                 }
             });
 
             return {
                 verbs: [...new Set(extractedVerbs.filter(Boolean))],
-                nouns: [...new Set(extractedNouns.filter(Boolean))],
-                sentences: [...new Set(extractedSentences.filter(Boolean))]
+                nouns: [...new Set(extractedNouns.filter(Boolean))]
             };
         }
 
@@ -1357,13 +1244,10 @@
 
                 verbs = data.verbs || [];
                 nouns = data.nouns || [];
-                if (data.sentences && data.sentences.length > 0) {
-                    sentences = data.sentences;
-                }
                 persistData();
                 initRemainingPools();
                 updateUIStats();
-                showToast(`成功匯入！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個，現成句子 ${sentences.length} 句`, 'success');
+                showToast(`成功匯入！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個`, 'success');
             } catch (err) {
                 showToast(err.message, 'error');
             } finally {
@@ -1381,19 +1265,18 @@
             reader.onload = function(e) {
                 const text = e.target.result;
                 const parsed = parseWordBankClient(text);
-                if (parsed.verbs.length === 0 && parsed.nouns.length === 0 && parsed.sentences.length === 0) {
-                    showToast('無法從檔案辨識出動詞、名詞或句子，請確認標註 [動詞]、[名詞] 或 [句子]', 'error');
+                if (parsed.verbs.length === 0 && parsed.nouns.length === 0) {
+                    showToast('無法從檔案辨識出動詞或名詞，請確認標註 [動詞] 與 [名詞]', 'error');
                     return;
                 }
 
                 if (parsed.verbs.length > 0) verbs = parsed.verbs;
                 if (parsed.nouns.length > 0) nouns = parsed.nouns;
-                if (parsed.sentences.length > 0) sentences = parsed.sentences;
 
                 persistData();
                 initRemainingPools();
                 updateUIStats();
-                showToast(`本機檔案匯入成功！動詞 ${parsed.verbs.length} 個，名詞 ${parsed.nouns.length} 個，現成句子 ${parsed.sentences.length} 句`, 'success');
+                showToast(`本機檔案匯入成功！動詞 ${parsed.verbs.length} 個，名詞 ${parsed.nouns.length} 個`, 'success');
             };
             reader.readAsText(file, 'utf-8');
             event.target.value = '';
@@ -1403,24 +1286,21 @@
         function saveWordBank() {
             const vText = document.getElementById('txtVerbs').value;
             const nText = document.getElementById('txtNouns').value;
-            const sText = document.getElementById('txtSentences').value;
 
             const newV = vText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
             const newN = nText.split(/[,，、;；\n\t]+/).map(cleanWordClient).filter(Boolean);
-            const newS = sText.split(/\r?\n/).map(formatSentenceClient).filter(Boolean);
 
-            if (newV.length === 0 && newN.length === 0 && newS.length === 0) {
-                showToast('動詞、名詞與句子不能同時為空！', 'error');
+            if (newV.length === 0 && newN.length === 0) {
+                showToast('動詞與名詞不能同時為空！', 'error');
                 return;
             }
 
             verbs = [...new Set(newV)];
             nouns = [...new Set(newN)];
-            sentences = [...new Set(newS)];
             persistData();
             initRemainingPools();
             updateUIStats();
-            showToast(`詞庫更新成功！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個，現成句子 ${sentences.length} 句`, 'success');
+            showToast(`詞庫更新成功！動詞 ${verbs.length} 個，名詞 ${nouns.length} 個`, 'success');
         }
 
         // 還原預設詞庫
@@ -1428,7 +1308,6 @@
             if (!confirm('確定要還原為系統預設的示範詞庫嗎？現有自訂內容將被覆蓋。')) return;
             verbs = [...DEFAULT_VERBS];
             nouns = [...DEFAULT_NOUNS];
-            sentences = [...DEFAULT_SENTENCES];
             persistData();
             initRemainingPools();
             updateUIStats();
